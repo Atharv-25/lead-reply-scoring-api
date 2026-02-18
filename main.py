@@ -56,7 +56,7 @@ def score(data: LeadInput):
         "state": state,
         "reason": reasons,
         "next_action": next_action,
-        "beta_feedback_prompt": beta_feedback_prompt
+        "beta_feedback_prompt": beta_feedback_prompt,
     }
 
 
@@ -77,7 +77,7 @@ async def score_batch_csv(file: UploadFile = File(...)):
         "state",
         "reason",
         "next_action",
-        "beta_feedback_prompt"
+        "beta_feedback_prompt",
     ])
 
     rows = []
@@ -95,7 +95,7 @@ async def score_batch_csv(file: UploadFile = File(...)):
                 "No buying signal",
                 "Missing thread_text",
                 "Ignore or archive.",
-                "Did this confirm deprioritization? (yes/no)"
+                "Did this confirm deprioritization? (yes/no)",
             ])
             continue
 
@@ -127,7 +127,7 @@ async def score_batch_csv(file: UploadFile = File(...)):
             state,
             " | ".join(reasons),
             next_action,
-            beta_feedback_prompt
+            beta_feedback_prompt,
         ])
 
     rows.sort(key=lambda x: x[2], reverse=True)
@@ -140,7 +140,7 @@ async def score_batch_csv(file: UploadFile = File(...)):
     return StreamingResponse(
         output,
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=scored_leads.csv"}
+        headers={"Content-Disposition": "attachment; filename=scored_leads.csv"},
     )
 
 
@@ -172,17 +172,17 @@ async def beta_summary_json(file: UploadFile = File(...)):
         else:
             noise += 1
 
-  return {
-    "beta_summary": {
-        "total_leads": total,
-        "ready_now": ready_now,
-        "evaluating": evaluating,
-        "noise": noise,
-        "suggested_focus": f"Reply to {ready_now} Ready Now leads today",
-        "confidence_check": "Does this match your intuition?",
-        "note": (
-            "Summary is computed from the uploaded CSV scores. "
-            "Download the scored CSV for full per-lead details."
-        )
+    return {
+        "beta_summary": {
+            "total_leads": total,
+            "ready_now": ready_now,
+            "evaluating": evaluating,
+            "noise": noise,
+            "suggested_focus": f"Reply to {ready_now} Ready Now leads today",
+            "confidence_check": "Does this match your intuition?",
+            "note": (
+                "Summary is computed from the uploaded CSV scores. "
+                "Download the scored CSV for full per-lead details."
+            ),
+        }
     }
-}
