@@ -108,21 +108,11 @@ async def score_batch_csv(file: UploadFile = File(...)):
             state = "Respond immediately"
             next_action = "Reply today. Push meeting or close."
             beta_feedback_prompt = "Did this help you reply faster today? (yes/no)"
-        elif score_value >= 71:
-            tier = "High Intent"
-            state = "Active evaluation"
-            next_action = "Reply within 24h. Clarify decision criteria."
-            beta_feedback_prompt = "Did this clarify priority vs other leads? (yes/no)"
         elif score_value >= 51:
             tier = "Evaluating"
             state = "Considering options"
             next_action = "Follow up in 3–5 days. Ask timeline."
             beta_feedback_prompt = "Did this clarify follow-up timing? (yes/no)"
-        elif score_value >= 31:
-            tier = "Light Interest"
-            state = "Low urgency"
-            next_action = "Nurture. Add to follow-up sequence."
-            beta_feedback_prompt = "Did this prevent premature follow-up? (yes/no)"
         else:
             tier = "Noise"
             state = "No buying signal"
@@ -150,9 +140,7 @@ async def score_batch_csv(file: UploadFile = File(...)):
     return StreamingResponse(
         output,
         media_type="text/csv",
-        headers={
-            "Content-Disposition": "attachment; filename=scored_leads.csv"
-        }
+        headers={"Content-Disposition": "attachment; filename=scored_leads.csv"}
     )
 
 
@@ -169,8 +157,13 @@ async def beta_summary_json(file: UploadFile = File(...)):
     noise = 0
 
     for row in reader:
+        text = row.get("thread_text", "").strip()
+        if not text:
+            continue
+
         total += 1
-        score_value = int(row.get("score", 0))
+        result = score_lead(text)
+        score_value = result.get("confidence", 0)
 
         if score_value >= 85:
             ready_now += 1
