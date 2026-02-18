@@ -179,13 +179,17 @@ async def beta_summary_json(file: UploadFile = File(...)):
         else:
             noise += 1
 
-    return {
-        "beta_summary": {
-            "total_leads": total,
-            "ready_now": ready_now,
-            "evaluating": evaluating,
-            "noise": noise,
-            "suggested_focus": f"Reply to {ready_now} Ready Now leads today",
-            "confidence_check": "Does this match your intuition?"
-        }
+  return {
+    "beta_summary": {
+        "total_leads": total,
+        "ready_now": ready_now,
+        "evaluating": evaluating,
+        "noise": noise,
+        "suggested_focus": f"Reply to {ready_now} Ready Now leads today",
+        "confidence_check": "Does this match your intuition?",
+        "note": (
+            "Summary is computed from the uploaded CSV scores. "
+            "Download the scored CSV for full per-lead details."
+        )
     }
+}
