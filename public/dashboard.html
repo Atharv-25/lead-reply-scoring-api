@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reply Prioritization Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f1117;
+            color: #e1e4e8;
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        /* ── Header ── */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #58a6ff, #7c3aed);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #58a6ff;
+            color: #0f1117;
+        }
+
+        .btn-primary:hover {
+            background: #79b8ff;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: #21262d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+        }
+
+        .btn-secondary:hover {
+            background: #30363d;
+        }
+
+        .btn-active {
+            background: #58a6ff !important;
+            color: #0f1117 !important;
+        }
+
+        /* ── Stats Panel ── */
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: #161b22;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #21262d;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .stat-label {
+            color: #8b949e;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-top: 4px;
+        }
+
+        .stat-ready .stat-value {
+            color: #3fb950;
+        }
+
+        .stat-eval .stat-value {
+            color: #d29922;
+        }
+
+        .stat-analyzed .stat-value {
+            color: #58a6ff;
+        }
+
+        .stat-saved .stat-value {
+            color: #7c3aed;
+        }
+
+        /* ── SLA Tracker (Feature 3) ── */
+        .sla-bar {
+            background: #161b22;
+            border: 1px solid #21262d;
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .sla-title {
+            font-size: 0.78rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        .sla-items {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .sla-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+
+        .sla-check {
+            color: #3fb950;
+            font-weight: 700;
+        }
+
+        .sla-miss {
+            color: #f85149;
+            font-weight: 700;
+        }
+
+        .sla-pending {
+            color: #d29922;
+            font-weight: 700;
+        }
+
+        /* ── Band Distribution (Feature 6) ── */
+        .band-dist {
+            background: #161b22;
+            border: 1px solid #21262d;
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 24px;
+        }
+
+        .band-dist-title {
+            font-size: 0.78rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .band-dist-bar {
+            display: flex;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .band-seg-ready {
+            background: #3fb950;
+        }
+
+        .band-seg-eval {
+            background: #d29922;
+        }
+
+        .band-seg-curious {
+            background: #58a6ff;
+        }
+
+        .band-seg-noise {
+            background: #484f58;
+        }
+
+        .band-dist-labels {
+            display: flex;
+            gap: 16px;
+            font-size: 0.75rem;
+        }
+
+        .band-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .band-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .band-pct {
+            color: #c9d1d9;
+            font-weight: 600;
+        }
+
+        /* ── Alerts Banner ── */
+        .alerts-banner {
+            background: linear-gradient(135deg, #4a1919, #2d1b1b);
+            border: 1px solid #f85149;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .alerts-banner.has-alerts {
+            display: block;
+        }
+
+        .alerts-banner h3 {
+            color: #f85149;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(248, 81, 73, 0.1);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
+        }
+
+        .alert-jump {
+            font-weight: 700;
+            color: #f85149;
+        }
+
+        .alert-time {
+            color: #8b949e;
+            font-size: 0.8rem;
+        }
+
+        /* ── Revenue Risk Snapshot (Feature 4) ── */
+        .missed-panel {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        .missed-panel.visible {
+            display: block;
+        }
+
+        .missed-panel h3 {
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            color: #d29922;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .snapshot-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .snapshot-row-2 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .snapshot-item {
+            background: #21262d;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .snapshot-val {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .snapshot-val.green {
+            color: #3fb950;
+        }
+
+        .snapshot-val.red {
+            color: #f85149;
+        }
+
+        .snapshot-val.gold {
+            color: #d29922;
+        }
+
+        .snapshot-val.blue {
+            color: #58a6ff;
+        }
+
+        .snapshot-label {
+            font-size: 0.7rem;
+            color: #8b949e;
+            text-transform: uppercase;
+        }
+
+        .missed-detail {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+            background: #21262d;
+        }
+
+        .missed-status {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .missed-status.late {
+            background: #4a1919;
+            color: #f85149;
+        }
+
+        .missed-status.no-response {
+            background: #3d2a00;
+            color: #d29922;
+        }
+
+        .missed-status.cooled {
+            background: #1a1a3d;
+            color: #8b8bff;
+        }
+
+        .missed-status.active {
+            background: #0d2d1a;
+            color: #3fb950;
+        }
+
+        /* ── Sections ── */
+        .section {
+            margin-bottom: 28px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #21262d;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .section-count {
+            background: #21262d;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            color: #8b949e;
+        }
+
+        .ready-now .section-header {
+            border-bottom-color: #3fb950;
+            color: #3fb950;
+        }
+
+        .evaluating .section-header {
+            border-bottom-color: #d29922;
+            color: #d29922;
+        }
+
+        .curious .section-header {
+            border-bottom-color: #58a6ff;
+            color: #58a6ff;
+        }
+
+        .noise .section-header {
+            border-bottom-color: #484f58;
+            color: #484f58;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: #161b22;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 10px;
+            border-left: 4px solid transparent;
+            transition: all 0.2s;
+            cursor: default;
+        }
+
+        .card:hover {
+            background: #1c2128;
+            transform: translateX(2px);
+        }
+
+        .ready-now .card {
+            border-left-color: #3fb950;
+        }
+
+        .evaluating .card {
+            border-left-color: #d29922;
+        }
+
+        .curious .card {
+            border-left-color: #58a6ff;
+        }
+
+        .noise .card {
+            border-left-color: #484f58;
+            opacity: 0.7;
+        }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .card-main {
+            flex: 1;
+        }
+
+        .card-score-wrap {
+            text-align: center;
+            min-width: 72px;
+        }
+
+        .card-score {
+            font-size: 1.6rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .card-band {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8b949e;
+            margin-top: 2px;
+        }
+
+        .score-ready {
+            color: #3fb950;
+        }
+
+        .score-eval {
+            color: #d29922;
+        }
+
+        .score-curious {
+            color: #58a6ff;
+        }
+
+        .score-noise {
+            color: #484f58;
+        }
+
+        .card-email {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+
+        .card-meta {
+            font-size: 0.8rem;
+            color: #8b949e;
+            margin-bottom: 8px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .card-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ── Trajectory Timeline (Feature 2) ── */
+        .trajectory {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            margin-bottom: 8px;
+        }
+
+        .traj-step {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 0.75rem;
+            color: #8b949e;
+        }
+
+        .traj-score {
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #21262d;
+        }
+
+        .traj-score.high {
+            color: #3fb950;
+            background: #0d2d1a;
+        }
+
+        .traj-score.mid {
+            color: #d29922;
+            background: #3d2a00;
+        }
+
+        .traj-score.low {
+            color: #8b949e;
+        }
+
+        .traj-arrow {
+            color: #484f58;
+            font-size: 0.7rem;
+            margin: 0 2px;
+        }
+
+        .traj-jump {
+            color: #f85149;
+            font-weight: 700;
+            font-size: 0.7rem;
+        }
+
+        /* ── Tags ── */
+        .tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .tag {
+            background: #21262d;
+            color: #c9d1d9;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            border: 1px solid #30363d;
+        }
+
+        /* ── Full Signal Breakdown ── */
+        .signal-breakdown {
+            display: none;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #21262d;
+        }
+
+        .signal-breakdown.open {
+            display: block;
+        }
+
+        .signal-breakdown h4 {
+            font-size: 0.75rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .signal-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 0.82rem;
+        }
+
+        .signal-detail {
+            color: #c9d1d9;
+            flex: 1;
+        }
+
+        .signal-contrib {
+            font-weight: 700;
+            min-width: 40px;
+            text-align: right;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+        }
+
+        .signal-contrib.positive {
+            color: #3fb950;
+            background: #0d2d1a;
+        }
+
+        .signal-contrib.negative {
+            color: #f85149;
+            background: #4a1919;
+        }
+
+        .signal-bar {
+            width: 100%;
+            height: 4px;
+            background: #21262d;
+            border-radius: 2px;
+            margin-top: 2px;
+            overflow: hidden;
+        }
+
+        .signal-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: #58a6ff;
+        }
+
+        .toggle-signals {
+            font-size: 0.78rem;
+            color: #58a6ff;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            font-family: inherit;
+            text-decoration: underline;
+        }
+
+        .toggle-signals:hover {
+            color: #79b8ff;
+        }
+
+        /* ── Badges ── */
+        .badge {
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .badge-cliff {
+            background: #4a1919;
+            color: #f85149;
+        }
+
+        .badge-rising {
+            background: #0d2d1a;
+            color: #3fb950;
+        }
+
+        .badge-cooling {
+            background: #1a1a3d;
+            color: #8b8bff;
+        }
+
+        .badge-jump {
+            background: #4a1919;
+            color: #f85149;
+            animation: pulse 2s infinite;
+        }
+
+        .badge-response {
+            background: #21262d;
+            color: #8b949e;
+        }
+
+        .badge-outcome {
+            border-radius: 6px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+
+        .badge-outcome-meeting {
+            background: #0d2d1a;
+            color: #3fb950;
+        }
+
+        .badge-outcome-none {
+            background: #3d2a00;
+            color: #d29922;
+        }
+
+        .badge-outcome-set {
+            cursor: default;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+        }
+
+        /* ── Disagreement Buttons (Feature 5) ── */
+        .disagree-wrap {
+            display: inline-flex;
+            gap: 4px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .disagree-btn {
+            padding: 2px 6px;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            background: #21262d;
+            color: #8b949e;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: inherit;
+        }
+
+        .disagree-btn:hover {
+            background: #30363d;
+            color: #c9d1d9;
+        }
+
+        .disagree-btn.flagged {
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .disagree-btn.flagged-higher {
+            background: #0d2d1a;
+            color: #3fb950;
+            border-color: #3fb950;
+        }
+
+        .disagree-btn.flagged-lower {
+            background: #4a1919;
+            color: #f85149;
+            border-color: #f85149;
+        }
+
+        /* ── Empty state ── */
+        .empty {
+            color: #484f58;
+            font-style: italic;
+            padding: 12px 0;
+            font-size: 0.85rem;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .stats-panel {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .snapshot-grid,
+            .snapshot-row-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .sla-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Reply Prioritization Engine</h1>
+            <div class="header-actions">
+                <button class="btn btn-secondary btn-active" id="btn-priority" onclick="setView('priority')">⚡
+                    Priority</button>
+                <button class="btn btn-secondary" id="btn-full" onclick="setView('full')">📋 Full View</button>
+                <button class="btn btn-secondary" id="btn-snapshot" onclick="toggleSnapshot()">📊 Revenue
+                    Snapshot</button>
+                <button class="btn btn-primary" onclick="fetchData()">↻ Refresh</button>
+            </div>
+        </div>
+
+        <!-- Stats Panel -->
+        <div class="stats-panel">
+            <div class="stat-card stat-ready">
+                <div class="stat-value" id="ready-count">0</div>
+                <div class="stat-label">Ready Now</div>
+            </div>
+            <div class="stat-card stat-eval">
+                <div class="stat-value" id="eval-count">0</div>
+                <div class="stat-label">Evaluating</div>
+            </div>
+            <div class="stat-card stat-analyzed">
+                <div class="stat-value" id="replies-analyzed">0</div>
+                <div class="stat-label">Replies Analyzed</div>
+            </div>
+            <div class="stat-card stat-saved">
+                <div class="stat-value" id="time-saved">0m</div>
+                <div class="stat-label">Est. Time Saved</div>
+            </div>
+        </div>
+
+        <!-- SLA Tracker (Feature 3 beta) -->
+        <div class="sla-bar" id="sla-bar">
+            <div class="sla-title">High Intent SLA</div>
+            <div class="sla-items">
+                <div class="sla-item"><span class="sla-check">✔</span> <span id="sla-under">0</span> <span
+                        style="color:#8b949e">&lt;30m</span></div>
+                <div class="sla-item"><span class="sla-miss">✖</span> <span id="sla-over">0</span> <span
+                        style="color:#8b949e">&gt;30m</span></div>
+                <div class="sla-item"><span class="sla-pending">⏳</span> <span id="sla-pending">0</span> <span
+                        style="color:#8b949e">Awaiting</span></div>
+            </div>
+        </div>
+
+        <!-- Band Distribution (Feature 6) -->
+        <div class="band-dist" id="band-dist">
+            <div class="band-dist-title">Band Distribution</div>
+            <div class="band-dist-bar" id="band-bar"></div>
+            <div class="band-dist-labels" id="band-labels"></div>
+        </div>
+
+        <!-- Alerts Banner -->
+        <div class="alerts-banner" id="alerts-banner">
+            <h3>🚨 Intent Jump Alerts</h3>
+            <div id="alerts-list"></div>
+        </div>
+
+        <!-- Revenue Risk Snapshot Panel (Feature 4 beta) -->
+        <div class="missed-panel" id="missed-panel">
+            <h3>📊 Weekly Revenue Risk Snapshot</h3>
+            <div class="snapshot-grid">
+                <div class="snapshot-item">
+                    <div class="snapshot-val blue" id="snap-intent">0</div>
+                    <div class="snapshot-label">High Intent Threads</div>
+                </div>
+                <div class="snapshot-item">
+                    <div class="snapshot-val green" id="snap-fast">0</div>
+                    <div class="snapshot-label">Responded &lt;30m</div>
+                </div>
+                <div class="snapshot-item">
+                    <div class="snapshot-val red" id="snap-slow">0</div>
+                    <div class="snapshot-label">Responded &gt;30m</div>
+                </div>
+            </div>
+            <div class="snapshot-row-2">
+                <div class="snapshot-item">
+                    <div class="snapshot-val green" id="snap-meetings">0</div>
+                    <div class="snapshot-label">Meetings Booked</div>
+                </div>
+                <div class="snapshot-item">
+                    <div class="snapshot-val red" id="snap-nomeet">0</div>
+                    <div class="snapshot-label">No Meetings</div>
+                </div>
+                <div class="snapshot-item">
+                    <div class="snapshot-val gold" id="snap-pending">0</div>
+                    <div class="snapshot-label">Pending Outcome</div>
+                </div>
+            </div>
+            <div id="missed-details"></div>
+        </div>
+
+        <!-- Section 1: Ready Now -->
+        <div class="section ready-now" id="section-ready">
+            <div class="section-header">🔥 Ready Now <span class="section-count" id="count-ready">0</span></div>
+            <div id="list-ready-now"></div>
+        </div>
+
+        <!-- Section 2: Evaluating -->
+        <div class="section evaluating" id="section-eval">
+            <div class="section-header">🔍 Evaluating <span class="section-count" id="count-eval">0</span></div>
+            <div id="list-evaluating"></div>
+        </div>
+
+        <!-- Section 3: Curious (hidden in priority view) -->
+        <div class="section curious" id="section-curious">
+            <div class="section-header">💭 Curious <span class="section-count" id="count-curious">0</span></div>
+            <div id="list-curious"></div>
+        </div>
+
+        <!-- Section 4: Noise (hidden in priority view) -->
+        <div class="section noise" id="section-noise">
+            <div class="section-header">💤 Noise <span class="section-count" id="count-noise">0</span></div>
+            <div id="list-noise"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentView = 'priority'; // 'priority' or 'full'
+        let snapshotVisible = false;
+
+        // ── View Toggle (Feature 1 beta) ──
+        function setView(mode) {
+            currentView = mode;
+            document.getElementById('btn-priority').classList.toggle('btn-active', mode === 'priority');
+            document.getElementById('btn-full').classList.toggle('btn-active', mode === 'full');
+            applyView();
+        }
+
+        function applyView() {
+            const curious = document.getElementById('section-curious');
+            const noise = document.getElementById('section-noise');
+
+            if (currentView === 'priority') {
+                curious.style.display = 'none';
+                noise.style.display = 'none';
+            } else {
+                curious.style.display = '';
+                noise.style.display = '';
+            }
+        }
+
+        // ── Data Fetch ──
+        async function fetchData() {
+            try {
+                const [dashRes, alertsRes] = await Promise.all([
+                    fetch('/api/dashboard'),
+                    fetch('/api/alerts')
+                ]);
+                const data = await dashRes.json();
+                const alerts = await alertsRes.json();
+                render(data, alerts);
+            } catch (err) {
+                console.error("Failed to fetch dashboard data", err);
+            }
+        }
+
+        function render(data, alerts) {
+            // Stats
+            document.getElementById('ready-count').textContent = data.stats.ready_count;
+            document.getElementById('eval-count').textContent = data.stats.evaluating_count || 0;
+            document.getElementById('replies-analyzed').textContent = data.stats.total_analyzed;
+            document.getElementById('time-saved').textContent = Math.round(data.stats.time_saved_minutes) + "m";
+
+            // SLA Tracker (Feature 3 beta)
+            if (data.sla) {
+                document.getElementById('sla-under').textContent = data.sla.responded_under_30m;
+                document.getElementById('sla-over').textContent = data.sla.responded_over_30m;
+                document.getElementById('sla-pending').textContent = data.sla.no_response_yet;
+            }
+
+            // Band Distribution (Feature 6)
+            if (data.band_distribution) {
+                renderBandDist(data.band_distribution);
+            }
+
+            // Counts
+            const readyItems = data.sections.ready_now || [];
+            const evalItems = data.sections.evaluating || [];
+            const curiousItems = data.sections.curious || [];
+            const noiseItems = data.sections.noise || [];
+
+            document.getElementById('count-ready').textContent = readyItems.length;
+            document.getElementById('count-eval').textContent = evalItems.length;
+            document.getElementById('count-curious').textContent = curiousItems.length;
+            document.getElementById('count-noise').textContent = noiseItems.length;
+
+            // Priority View: Top 5 Ready Now + Top 10 Evaluating
+            if (currentView === 'priority') {
+                renderList('list-ready-now', readyItems.slice(0, 5), 'ready');
+                renderList('list-evaluating', evalItems.slice(0, 10), 'eval');
+            } else {
+                renderList('list-ready-now', readyItems, 'ready');
+                renderList('list-evaluating', evalItems, 'eval');
+            }
+            renderList('list-curious', curiousItems, 'curious');
+            renderList('list-noise', noiseItems, 'noise');
+
+            // Alerts
+            renderAlerts(alerts);
+
+            // Apply view mode
+            applyView();
+        }
+
+        // ── Band Distribution Bar (Feature 6) ──
+        function renderBandDist(dist) {
+            const bar = document.getElementById('band-bar');
+            const labels = document.getElementById('band-labels');
+            const bands = [
+                { key: 'ready_now', cls: 'band-seg-ready', label: 'Ready Now', color: '#3fb950' },
+                { key: 'evaluating', cls: 'band-seg-eval', label: 'Evaluating', color: '#d29922' },
+                { key: 'curious', cls: 'band-seg-curious', label: 'Curious', color: '#58a6ff' },
+                { key: 'noise', cls: 'band-seg-noise', label: 'Noise', color: '#484f58' }
+            ];
+
+            bar.innerHTML = bands.map(b => {
+                const pct = dist[b.key] || 0;
+                return pct > 0 ? `<div class="${b.cls}" style="width:${pct}%"></div>` : '';
+            }).join('');
+
+            labels.innerHTML = bands.map(b => {
+                const pct = dist[b.key] || 0;
+                return `<div class="band-label">
+                    <div class="band-dot" style="background:${b.color}"></div>
+                    <span>${b.label}</span>
+                    <span class="band-pct">${pct}%</span>
+                </div>`;
+            }).join('');
+        }
+
+        // ── Alerts ──
+        function renderAlerts(alerts) {
+            const banner = document.getElementById('alerts-banner');
+            const list = document.getElementById('alerts-list');
+
+            if (!alerts || alerts.length === 0) {
+                banner.classList.remove('has-alerts');
+                return;
+            }
+
+            banner.classList.add('has-alerts');
+            list.innerHTML = alerts.map(a => `
+                <div class="alert-item">
+                    <div>
+                        <strong>${a.email}</strong>
+                        <span class="alert-jump"> ${a.from_score} → ${a.to_score} (+${a.delta})</span>
+                        <span class="badge badge-${a.state === 'Ready Now' ? 'rising' : 'jump'}">${a.state}</span>
+                    </div>
+                    <span class="alert-time">${a.time}</span>
+                </div>
+            `).join('');
+        }
+
+        // ── Revenue Risk Snapshot (Feature 4 beta) ──
+        async function toggleSnapshot() {
+            const panel = document.getElementById('missed-panel');
+            snapshotVisible = !snapshotVisible;
+            document.getElementById('btn-snapshot').classList.toggle('btn-active', snapshotVisible);
+
+            if (snapshotVisible) {
+                panel.classList.add('visible');
+                try {
+                    const res = await fetch('/api/missed-report');
+                    const data = await res.json();
+                    renderSnapshot(data);
+                } catch (err) {
+                    console.error("Failed to fetch snapshot", err);
+                }
+            } else {
+                panel.classList.remove('visible');
+            }
+        }
+
+        function renderSnapshot(data) {
+            const snap = data.revenue_snapshot || {};
+            document.getElementById('snap-intent').textContent = snap.high_intent_threads || 0;
+            document.getElementById('snap-fast').textContent = snap.responded_under_30m || 0;
+            document.getElementById('snap-slow').textContent = snap.responded_over_30m || 0;
+            document.getElementById('snap-meetings').textContent = snap.meetings_booked || 0;
+            document.getElementById('snap-nomeet').textContent = snap.no_meetings || 0;
+            document.getElementById('snap-pending').textContent = snap.pending_outcome || 0;
+
+            const details = document.getElementById('missed-details');
+            if (!data.details || data.details.length === 0) {
+                details.innerHTML = '<div class="empty">No high-intent threads this week.</div>';
+                return;
+            }
+
+            details.innerHTML = data.details.map(d => {
+                let statusClass = d.status === 'Late Response' ? 'late' :
+                    d.status === 'No Response Yet' ? 'no-response' :
+                        d.status === 'Cooled Before Response' ? 'cooled' : 'active';
+                let respTime = d.response_time_min ? `${d.response_time_min}m avg` : 'No response';
+                return `
+                    <div class="missed-detail">
+                        <span><strong>${d.email}</strong> — Score ${d.score}</span>
+                        <span>${respTime}</span>
+                        <span class="missed-status ${statusClass}">${d.status}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ── Card List Renderer ──
+        function renderList(elementId, items, tier) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = '';
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="empty">No leads here yet.</div>';
+                return;
+            }
+
+            items.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                const cardId = `signals-${elementId}-${idx}`;
+
+                // Score color
+                let scoreClass = tier === 'ready' ? 'score-ready' :
+                    tier === 'eval' ? 'score-eval' :
+                        tier === 'curious' ? 'score-curious' : 'score-noise';
+
+                // Badges
+                let badges = '';
+                if (item.cliff_flag) badges += `<span class="badge badge-cliff">⚠ ${item.cliff_flag}</span> `;
+                if (item.momentum === 'Rising') badges += `<span class="badge badge-rising">↑ Rising</span> `;
+                if (item.momentum === 'Cooling') badges += `<span class="badge badge-cooling">↓ Cooling</span> `;
+                if (item.intent_jump_alert) {
+                    const j = item.intent_jump_alert;
+                    badges += `<span class="badge badge-jump">⚡ +${j.delta} jump</span> `;
+                }
+                if (item.avg_response_time_min != null) {
+                    badges += `<span class="badge badge-response">⏱ ${item.avg_response_time_min}m avg</span> `;
+                }
+
+                // Outcome buttons
+                let outcomeHtml = '';
+                if (item.outcome === 'meeting') {
+                    outcomeHtml = `<span class="badge badge-outcome badge-outcome-meeting badge-outcome-set">✓ Meeting</span>`;
+                } else if (item.outcome === 'no_meeting') {
+                    outcomeHtml = `<span class="badge badge-outcome badge-outcome-none badge-outcome-set">✗ No Meeting</span>`;
+                } else if (tier === 'ready' || tier === 'eval') {
+                    outcomeHtml = `
+                        <span class="badge badge-outcome badge-outcome-meeting" onclick="setOutcome('${item.email}', 'meeting', this)">✓ Meeting</span>
+                        <span class="badge badge-outcome badge-outcome-none" onclick="setOutcome('${item.email}', 'no_meeting', this)">✗ No Meeting</span>
+                    `;
+                }
+
+                // Tags
+                const tagsHtml = (item.explanation || []).map(t => `<span class="tag">${t}</span>`).join('');
+
+                // Full signal breakdown
+                let signalHtml = '';
+                if (item.full_explanation && item.full_explanation.length > 0) {
+                    const maxContrib = Math.max(...item.full_explanation.map(s => Math.abs(s.contribution)));
+                    signalHtml = item.full_explanation.map(s => {
+                        const pct = maxContrib > 0 ? (Math.abs(s.contribution) / maxContrib * 100) : 0;
+                        const cls = s.contribution >= 0 ? 'positive' : 'negative';
+                        const sign = s.contribution >= 0 ? '+' : '';
+                        return `
+                            <div class="signal-row">
+                                <span class="signal-detail">${s.detail}</span>
+                                <span class="signal-contrib ${cls}">${sign}${s.contribution}</span>
+                            </div>
+                            <div class="signal-bar"><div class="signal-bar-fill" style="width:${pct}%;background:${s.contribution >= 0 ? '#3fb950' : '#f85149'}"></div></div>
+                        `;
+                    }).join('');
+                }
+
+                // Date
+                const dateStr = item.last_reply ? new Date(item.last_reply * 1000).toLocaleString() : 'No replies';
+
+                // Trajectory Timeline (Feature 2 beta)
+                let trajectoryHtml = '';
+                if (item.score_history && item.score_history.length > 1) {
+                    const steps = item.score_history.map((s, i) => {
+                        let cls = s >= 58 ? 'high' : s >= 20 ? 'mid' : 'low';
+                        let jumpHtml = '';
+                        if (i > 0) {
+                            const delta = s - item.score_history[i - 1];
+                            if (delta >= 20) {
+                                jumpHtml = `<span class="traj-jump">(+${delta} ⚡)</span>`;
+                            }
+                        }
+                        return `<span class="traj-step">Reply ${i + 1} → <span class="traj-score ${cls}">${s}</span>${jumpHtml}</span>`;
+                    });
+                    trajectoryHtml = `<div class="trajectory">${steps.join('<span class="traj-arrow">·</span>')}</div>`;
+                }
+
+                // Disagreement buttons (Feature 5 beta)
+                let disagreeHtml = '';
+                if (tier === 'ready' || tier === 'eval' || tier === 'curious') {
+                    disagreeHtml = `
+                        <div class="disagree-wrap" id="disagree-${cardId}">
+                            <button class="disagree-btn" onclick="flagDisagree('${item.email}', 'higher', '${cardId}')" title="Should be higher">👆</button>
+                            <button class="disagree-btn" onclick="flagDisagree('${item.email}', 'lower', '${cardId}')" title="Should be lower">👇</button>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="card-top">
+                        <div class="card-main">
+                            <div class="card-email">${item.email} ${badges}</div>
+                            <div class="card-meta">
+                                <span>📅 ${dateStr}</span>
+                            </div>
+                            ${trajectoryHtml}
+                            <div class="tags">${tagsHtml}</div>
+                            ${item.full_explanation && item.full_explanation.length > 0 ? `
+                                <button class="toggle-signals" onclick="toggleBreakdown('${cardId}', this)">▸ Show signal breakdown</button>
+                                <div class="signal-breakdown" id="${cardId}">
+                                    <h4>All Signals That Fired</h4>
+                                    ${signalHtml}
+                                </div>
+                            ` : ''}
+                            <div style="margin-top:6px">${outcomeHtml}</div>
+                        </div>
+                        <div class="card-score-wrap">
+                            <div class="card-score ${scoreClass}">${item.score}</div>
+                            <div class="card-band">${item.state}</div>
+                            ${disagreeHtml}
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function toggleBreakdown(id, btn) {
+            const el = document.getElementById(id);
+            if (el.classList.contains('open')) {
+                el.classList.remove('open');
+                btn.textContent = '▸ Show signal breakdown';
+            } else {
+                el.classList.add('open');
+                btn.textContent = '▾ Hide signal breakdown';
+            }
+        }
+
+        async function setOutcome(email, outcome, btn) {
+            try {
+                const res = await fetch('/api/outcome', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, outcome })
+                });
+                if (res.ok) fetchData();
+            } catch (err) {
+                console.error("Failed to set outcome", err);
+            }
+        }
+
+        // Disagreement Capture (Feature 5 beta)
+        async function flagDisagree(email, direction, cardId) {
+            try {
+                const res = await fetch('/api/disagreement', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, direction })
+                });
+                if (res.ok) {
+                    const wrap = document.getElementById(`disagree-${cardId}`);
+                    const label = direction === 'higher' ? '↑' : '↓';
+                    const cls = direction === 'higher' ? 'flagged-higher' : 'flagged-lower';
+                    wrap.innerHTML = `<span class="disagree-btn flagged ${cls}">Flagged ${label}</span>`;
+                }
+            } catch (err) {
+                console.error("Failed to flag disagreement", err);
+            }
+        }
+
+        // Auto-load
+        fetchData();
+        // Refresh every 30s
+        setInterval(fetchData, 30000);
+    </script>
+</body>
+
+</html>

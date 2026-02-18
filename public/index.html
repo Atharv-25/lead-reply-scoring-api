@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Verification</title>
+    <style>
+        /* Minimal ugly-but-functional styling */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        .step {
+            display: none;
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        input,
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-row input {
+            width: auto;
+        }
+
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            background: #e7f3e7;
+            border: 1px solid #5a5;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Contact Us</h1>
+
+    <!-- =============================================
+       STEP 1: Lead Form (Name, Email, Phone)
+       This is NOT final submit - just data collection
+  ============================================= -->
+    <div id="step1" class="step active">
+        <h2>Step 1: Your Details</h2>
+        <input type="text" id="name" placeholder="Full Name" required>
+        <input type="email" id="email" placeholder="Email Address" required>
+        <input type="tel" id="phone" placeholder="Phone Number" required>
+        <button id="continueBtn">Continue</button>
+    </div>
+
+    <!-- =============================================
+       STEP 2: OTP Verification
+       OTP is sent to email (logged in server console)
+  ============================================= -->
+    <div id="step2" class="step">
+        <h2>Step 2: Verify Email</h2>
+        <p>Enter the 6-digit code sent to your email.</p>
+        <input type="text" id="otp" placeholder="Enter OTP" maxlength="6">
+        <button id="verifyBtn">Verify OTP</button>
+        <button id="resendBtn" style="background:#666">Resend OTP</button>
+    </div>
+
+    <!-- =============================================
+       STEP 3: Intent Confirmation
+       User MUST check the box to confirm intent
+  ============================================= -->
+    <div id="step3" class="step">
+        <h2>Step 3: Confirm Intent</h2>
+        <div class="checkbox-row">
+            <input type="checkbox" id="intent">
+            <label for="intent">Yes, I want to be contacted</label>
+        </div>
+        <button id="submitBtn" disabled>Submit</button>
+    </div>
+
+    <!-- =============================================
+       SUCCESS MESSAGE
+  ============================================= -->
+    <div id="success" class="step">
+        <div class="message">Thank you! We'll be in touch.</div>
+    </div>
+
+    <script>
+        /**
+         * Lead Verification Gate - Frontend Logic
+         * 
+         * FLOW:
+         * 1. User fills form → clicks Continue
+         * 2. Backend sends OTP (logged to console)
+         * 3. User verifies OTP
+         * 4. User confirms intent with checkbox
+         * 5. ONLY THEN is lead submitted
+         */
+
+        // ============================================
+        // STATE
+        // ============================================
+        let formData = { name: '', email: '', phone: '' };
+
+        // ============================================
+        // DOM ELEMENTS
+        // ============================================
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+        const success = document.getElementById('success');
+
+        const nameInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
+        const phoneInput = document.getElementById('phone');
+        const otpInput = document.getElementById('otp');
+        const intentCheckbox = document.getElementById('intent');
+
+        const continueBtn = document.getElementById('continueBtn');
+        const verifyBtn = document.getElementById('verifyBtn');
+        const resendBtn = document.getElementById('resendBtn');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // ============================================
+        // HELPER FUNCTIONS
+        // ============================================
+        function showStep(stepEl) {
+            [step1, step2, step3, success].forEach(s => s.classList.remove('active'));
+            stepEl.classList.add('active');
+        }
+
+        async function sendOTP() {
+            try {
+                await fetch('/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: formData.email })
+                });
+            } catch (err) {
+                console.error('Fetch error:', err);
+                // Fallback for demo if fetch fails violently
+            }
+        }
+
+        // ============================================
+        // STEP 1: Continue (Send OTP)
+        // ============================================
+        continueBtn.addEventListener('click', async () => {
+            // Collect form data
+            formData.name = nameInput.value.trim();
+            formData.email = emailInput.value.trim();
+            formData.phone = phoneInput.value.trim();
+
+            // Basic validation
+            if (!formData.name || !formData.email || !formData.phone) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            // Send OTP and move to step 2
+            continueBtn.disabled = true;
+            continueBtn.textContent = 'Sending...';
+
+            await sendOTP();
+
+            showStep(step2);
+            continueBtn.disabled = false;
+            continueBtn.textContent = 'Continue';
+        });
+
+        // ============================================
+        // STEP 2: Verify OTP
+        // ============================================
+        verifyBtn.addEventListener('click', async () => {
+            const code = otpInput.value.trim();
+
+            if (code.length !== 6) {
+                alert('Please enter 6-digit code');
+                return;
+            }
+
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying...';
+
+            try {
+                const res = await fetch('/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: formData.email, code })
+                });
+
+                const data = await res.json();
+
+                if (data.verified) {
+                    showStep(step3);
+                } else {
+                    // Generic message - never expose "invalid OTP"
+                    alert('Please check your code and try again');
+                }
+            } catch (err) {
+                alert('Communication error. Try again.');
+            }
+
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = 'Verify OTP';
+        });
+
+        // Resend OTP
+        resendBtn.addEventListener('click', async () => {
+            resendBtn.disabled = true;
+            resendBtn.textContent = 'Sending...';
+
+            await sendOTP();
+
+            resendBtn.disabled = false;
+            resendBtn.textContent = 'Resend OTP';
+            alert('New code sent!');
+        });
+
+        // ============================================
+        // STEP 3: Intent Confirmation + Submit
+        // ============================================
+
+        // Enable/disable submit based on checkbox
+        intentCheckbox.addEventListener('change', () => {
+            submitBtn.disabled = !intentCheckbox.checked;
+        });
+
+        submitBtn.addEventListener('click', async () => {
+            if (!intentCheckbox.checked) {
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+
+            // Submit lead with all verification data
+            await fetch('/submit-lead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: formData.name,
+                    email: formData.email,
+                    phone: formData.phone,
+                    intentConfirmed: true
+                })
+            });
+
+            // Always show success
+            showStep(success);
+        });
+    </script>
+</body>
+
+</html>
