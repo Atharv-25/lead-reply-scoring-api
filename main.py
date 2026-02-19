@@ -1,62 +1,43 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from reply_intelligence import score_lead
+from reply_intelligence import decide_lead
 import csv
 import io
+import json
+from datetime import datetime
 
 app = FastAPI()
 
 
 class LeadInput(BaseModel):
     text: str
-
-
-@app.get("/")
-def home():
-    return {"status": "Server is running"}
+    created_at: str = None # ISO format preferred
+    last_reply_from_us: bool = False
 
 
 # ---------- Single lead scoring ----------
 @app.post("/score")
 def score(data: LeadInput):
-    result = score_lead(data.text)
-    score_value = result.get("confidence", 0)
-    reasons = result.get("reason", [])
-
-    if score_value >= 85:
-        tier = "Ready Now"
-        state = "Respond immediately"
-        next_action = "Reply today. Push meeting or close."
-        beta_feedback_prompt = "Did this help you reply faster today? (yes/no)"
-    elif score_value >= 71:
-        tier = "High Intent"
-        state = "Active evaluation"
-        next_action = "Reply within 24h. Clarify decision criteria."
-        beta_feedback_prompt = "Did this clarify priority vs other leads? (yes/no)"
-    elif score_value >= 51:
-        tier = "Evaluating"
-        state = "Considering options"
-        next_action = "Follow up in 3–5 days. Ask timeline."
-        beta_feedback_prompt = "Did this clarify follow-up timing? (yes/no)"
-    elif score_value >= 31:
-        tier = "Light Interest"
-        state = "Low urgency"
-        next_action = "Nurture. Add to follow-up sequence."
-        beta_feedback_prompt = "Did this prevent premature follow-up? (yes/no)"
-    else:
-        tier = "Noise"
-        state = "No buying signal"
-        next_action = "Ignore or archive."
-        beta_feedback_prompt = "Did this confirm deprioritization? (yes/no)"
-
+    # UNIFIED PATH: Call decide_lead directly
+    metadata = {
+        "created_at": data.created_at,
+        "last_reply_from_us": data.last_reply_from_us
+    }
+    result = decide_lead(data.text, metadata=metadata)
+    
     return {
-        "score": score_value,
-        "tier": tier,
-        "state": state,
-        "reason": reasons,
-        "next_action": next_action,
-        "beta_feedback_prompt": beta_feedback_prompt,
+        "score": result["priority_score"], 
+        "tier": result["tier"],
+        "action": result["action"],
+        "confidence": result["confidence_bucket"],
+        "priority_score": result["priority_score"],
+        "priority_level": result["priority_level"],
+        "ranking_rationale": "See explanation.",
+        "confidence_rationale": "Determined by strict rules.",
+        "explanation": result["explanation"],
+        "beta_feedback_prompt": result["feedback_prompt"],
+        "disposition": result["disposition"]
     }
 
 
@@ -64,7 +45,11 @@ def score(data: LeadInput):
 @app.post("/score-batch-csv")
 async def score_batch_csv(file: UploadFile = File(...)):
     content = await file.read()
-    decoded = content.decode("utf-8")
+    try:
+        decoded = content.decode("utf-8")
+    except UnicodeDecodeError:
+        decoded = content.decode("latin-1") 
+        
     reader = csv.DictReader(io.StringIO(decoded))
 
     output = io.StringIO()
@@ -72,68 +57,130 @@ async def score_batch_csv(file: UploadFile = File(...)):
     writer.writerow([
         "id",
         "thread_text",
-        "score",
-        "tier",
-        "state",
-        "reason",
-        "next_action",
-        "beta_feedback_prompt",
+        "priority_level",      
+        "ranking_rationale",  
+        "confidence_rationale",
+        "action",              
+        "tier",                
+        "confidence_bucket",   
+        "explanation",         
+        "feedback_question",   
+        "disposition"
     ])
 
-    rows = []
+    sorted_rows = []
+    
+    headers = reader.fieldnames or []
+    date_col = next((h for h in headers if h.lower() in ["created_at", "date", "timestamp", "received_at"]), None)
+    reply_col = next((h for h in headers if h.lower() in ["replied", "last_reply_from_us", "is_replied"]), None)
+    status_col = next((h for h in headers if h.lower() in ["status", "state"]), None)
+    id_col = next((h for h in headers if h.lower() in ["id", "email_id", "email", "lead_id"]), "id")
 
-    for index, row in enumerate(reader, start=1):
+    # Read all rows first
+    all_rows = list(reader)
+
+    for index, row in enumerate(all_rows, start=1):
         text = row.get("thread_text", "").strip()
-        row_id = row.get("id", index)
-
         if not text:
-            rows.append([
+             pass
+
+        row_id = row.get(id_col, str(index))
+        
+        # Extract Metadata
+        created_at = row.get(date_col) if date_col else None
+        
+        last_reply = False
+        if reply_col:
+            val = row.get(reply_col, "").lower()
+            if val in ["true", "yes", "1", "y"]:
+                last_reply = True
+        elif status_col:
+            val = row.get(status_col, "").lower()
+            if "replied" in val or "handled" in val:
+                last_reply = True
+
+        metadata = {
+            "created_at": created_at,
+            "last_reply_from_us": last_reply,
+            "email_id": row_id 
+        }
+
+        # UNIFIED PATH
+        result = decide_lead(text, metadata=metadata)
+        
+        feedback_q = result["feedback_prompt"]
+        p_score = result["priority_score"]
+        p_level = result["priority_level"]
+        
+        # Metrics for Tie-Breaker
+        q_count = text.count("?")
+        word_count = len(text.split())
+
+        sorted_rows.append({
+            "row": [
                 row_id,
-                "",
-                0,
-                "Noise",
-                "No buying signal",
-                "Missing thread_text",
-                "Ignore or archive.",
-                "Did this confirm deprioritization? (yes/no)",
-            ])
-            continue
+                text,
+                p_level,
+                "Determined by rule engine.",
+                "Strict confidence rules.",
+                result["action"],
+                result["tier"],
+                result["confidence_bucket"],
+                result["explanation"],
+                feedback_q,
+                result["disposition"]
+            ],
+            # Sort Key
+            "sort_data": {
+                "action": result["action"],
+                "score": p_score,
+                "q_count": q_count,
+                "word_count": word_count,
+                "index": index
+            }
+        })
 
-        result = score_lead(text)
-        score_value = result.get("confidence", 0)
-        reasons = result.get("reason", [])
+    # Sort priority: respond_now > respond_later > do_not_respond
+    action_rank = {"respond_now": 3, "respond_later": 2, "do_not_respond": 1, "dont_respond": 1}
+    
+    sorted_rows.sort(key=lambda x: (
+        action_rank.get(x["sort_data"]["action"], 0),
+        x["sort_data"]["score"],
+        x["sort_data"]["q_count"],
+        -x["sort_data"]["word_count"],
+        -x["sort_data"]["index"]
+    ), reverse=True)
 
-        if score_value >= 85:
-            tier = "Ready Now"
-            state = "Respond immediately"
-            next_action = "Reply today. Push meeting or close."
-            beta_feedback_prompt = "Did this help you reply faster today? (yes/no)"
-        elif score_value >= 51:
-            tier = "Evaluating"
-            state = "Considering options"
-            next_action = "Follow up in 3–5 days. Ask timeline."
-            beta_feedback_prompt = "Did this clarify follow-up timing? (yes/no)"
-        else:
-            tier = "Noise"
-            state = "No buying signal"
-            next_action = "Ignore or archive."
-            beta_feedback_prompt = "Did this confirm deprioritization? (yes/no)"
+    # ==========================================
+    # HARDENING 5: BATCH MONITORING
+    # ==========================================
+    try:
+        total_processed = len(sorted_rows)
+        if total_processed > 0:
+            actions = {"respond_now": 0, "respond_later": 0, "do_not_respond": 0}
+            total_score = 0
+            
+            for item in sorted_rows:
+                act = item["sort_data"]["action"]
+                if act == "dont_respond": act = "do_not_respond"
+                actions[act] = actions.get(act, 0) + 1
+                total_score += item["sort_data"]["score"]
+            
+            avg_score = round(total_score / total_processed, 1)
+            
+            log_entry = (
+                f"{datetime.now().isoformat()} | BATCH | "
+                f"Total: {total_processed} | AvgScore: {avg_score} | "
+                f"Actions: {json.dumps(actions)}\n"
+            )
+            
+            with open("batch_metrics.log", "a") as f:
+                f.write(log_entry)
+    except Exception as e:
+        print(f"Monitoring Log Error: {e}")
 
-        rows.append([
-            row_id,
-            text,
-            score_value,
-            tier,
-            state,
-            " | ".join(reasons),
-            next_action,
-            beta_feedback_prompt,
-        ])
-
-    rows.sort(key=lambda x: x[2], reverse=True)
-
-    for r in rows:
-        writer.writerow(r)
+    for item in sorted_rows:
+        writer.writerow(item["row"])
 
     output.seek(0)
 
@@ -148,13 +195,24 @@ async def score_batch_csv(file: UploadFile = File(...)):
 @app.post("/beta-summary-json")
 async def beta_summary_json(file: UploadFile = File(...)):
     content = await file.read()
-    decoded = content.decode("utf-8")
+    try:
+         decoded = content.decode("utf-8")
+    except UnicodeDecodeError:
+         decoded = content.decode("latin-1")
+         
     reader = csv.DictReader(io.StringIO(decoded))
 
     total = 0
-    ready_now = 0
-    evaluating = 0
-    noise = 0
+    actions = {
+        "respond_now": 0,
+        "respond_later": 0,
+        "do_not_respond": 0
+    }
+    
+    tiers = {}
+    
+    for k in ["respond_now", "respond_later", "do_not_respond"]:
+        actions[k] = 0
 
     for row in reader:
         text = row.get("thread_text", "").strip()
@@ -162,27 +220,20 @@ async def beta_summary_json(file: UploadFile = File(...)):
             continue
 
         total += 1
-        result = score_lead(text)
-        score_value = result.get("confidence", 0)
-
-        if score_value >= 85:
-            ready_now += 1
-        elif score_value >= 51:
-            evaluating += 1
-        else:
-            noise += 1
+        result = decide_lead(text)
+        
+        act = result["action"]
+        tier = result["tier"]
+        
+        actions[act] = actions.get(act, 0) + 1
+        tiers[tier] = tiers.get(tier, 0) + 1
 
     return {
         "beta_summary": {
             "total_leads": total,
-            "ready_now": ready_now,
-            "evaluating": evaluating,
-            "noise": noise,
-            "suggested_focus": f"Reply to {ready_now} Ready Now leads today",
-            "confidence_check": "Does this match your intuition?",
-            "note": (
-                "Summary is computed from the uploaded CSV scores. "
-                "Download the scored CSV for full per-lead details."
-            ),
+            "action_breakdown": actions,
+            "tier_breakdown": tiers,
+            "suggested_focus": f"Reply to {actions.get('respond_now', 0)} 'Respond Now' leads today",
+            "note": "Summary computed via decide_lead logic."
         }
     }
