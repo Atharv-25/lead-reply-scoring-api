@@ -28,3 +28,5 @@ A self-contained Python Flask application that verifies email leads with OTPs an
 ## 📊 Google Sheets
 Data is saved to Spreadsheet ID: `1SNxX0k2lO4gWmxJHokM5AT1edjr16SvaRzZpfI0mfCk`
 Ensure `credentials.json` shares access with this sheet!
+
+
