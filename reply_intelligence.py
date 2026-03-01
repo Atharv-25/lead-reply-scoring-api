@@ -121,15 +121,19 @@ class ReplyIntelligence:
             r"when can we talk",
             r"let's talk",
             r"lets talk",
-            r"looping in.*head of",
-            r"looping in.*vp",
-            r"looping in.*cto",
-            r"looping in.*ceo",
+            r"i make the call",
+            r"founder.*decision",
+        ]
+
+        # Internal referral / escalation patterns → "Referred" state
+        self.TERMINAL_REFERRED_PATTERNS = [
+            r"looping in.*(?:head of|director|vp|cto|ceo|sales)",
             r"forwarded.*(?:head of|director|vp|cto|ceo|sales)",
             r"sent this to.*(?:head of|director|vp|cto|ceo|sales)",
             r"passed.*to.*(?:head of|director|vp|cto|ceo|sales)",
-            r"i make the call",
-            r"founder.*decision",
+            r"i'?ll.*(?:forward|send|pass).*(?:head of|director|vp|cto|ceo|sales)",
+            r"not my (?:area|department|call).*(?:forward|sent|pass|loop)",
+            r"(?:forward|sent|pass).*(?:right person|right team|relevant team)",
         ]
 
         self.TERMINAL_NOISE_PATTERNS = [
@@ -384,6 +388,21 @@ def decide_lead(thread_text=None, thread_history=None, metadata=None):
                 "action": "respond_now", "tier": "Ready Now", "confidence_bucket": "High",
                 "priority_score": 95, "priority_level": "Critical", "explanation": "Terminal buying command detected.",
                 "feedback_prompt": "Did you reply? (Yes/No)", "disposition": "qualified"
+            })
+            return _apply_inbox_reality(decision, metadata)
+
+    # Referral / internal escalation check
+    for p in engine.TERMINAL_REFERRED_PATTERNS:
+        if re.search(p, cleaned_text):
+            decision.update({
+                "action": "respond_later", "tier": "Referred", "confidence_bucket": "Medium",
+                "priority_score": 70, "priority_level": "Standard",
+                "explanation": "Internal referral detected. Lead escalated to decision-maker.",
+                "feedback_prompt": "Did decision-maker respond? (Yes/No)",
+                "disposition": "referred",
+                "stage": "Referred",
+                "status": "Awaiting decision maker response",
+                "follow_up": "3 to 5 business days"
             })
             return _apply_inbox_reality(decision, metadata)
 

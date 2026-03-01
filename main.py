@@ -65,7 +65,10 @@ async def score_batch_csv(file: UploadFile = File(...)):
         "confidence_bucket",   
         "explanation",         
         "feedback_question",   
-        "disposition"
+        "disposition",
+        "stage",
+        "status",
+        "follow_up"
     ])
 
     sorted_rows = []
@@ -128,7 +131,10 @@ async def score_batch_csv(file: UploadFile = File(...)):
                 result["confidence_bucket"],
                 result["explanation"],
                 feedback_q,
-                result["disposition"]
+                result["disposition"],
+                result.get("stage", ""),
+                result.get("status", ""),
+                result.get("follow_up", "")
             ],
             # Sort Key
             "sort_data": {

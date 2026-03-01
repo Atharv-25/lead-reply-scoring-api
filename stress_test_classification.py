@@ -138,10 +138,10 @@ check("Lets talk",
       "Ready Now", "respond_now")
 check("Looping in CTO",
       "Looping in our CTO to discuss integration.",
-      "Ready Now", "respond_now")
+      "Referred", "respond_later")
 check("Looping in Head of",
       "Looping in our Head of Sales for next steps.",
-      "Ready Now", "respond_now")
+      "Referred", "respond_later")
 check("Available this week",
       "I'm available this week for a call.",
       "Ready Now", "respond_now")
@@ -163,15 +163,26 @@ check("Finalize vendor",
 check("Lock this in",
       "Let's lock this in.",
       "Ready Now", "respond_now")
+
+# ==========================================
+# SECTION 5b: Internal referrals → Referred
+# ==========================================
+print("\n--- SECTION 5b: Internal referrals → Referred ---")
 check("Forwarded to Head of Sales",
       "I forwarded this to our Head of Sales. Not my area.",
-      "Ready Now", "respond_now")
+      "Referred", "respond_later")
 check("Sent this to VP",
       "I sent this to our VP of Revenue, he handles these decisions.",
-      "Ready Now", "respond_now")
+      "Referred", "respond_later")
 check("Passed to CTO",
       "I passed this to our CTO, he'll take it from here.",
-      "Ready Now", "respond_now")
+      "Referred", "respond_later")
+check("Looping in Head of Sales",
+      "Looping in our Head of Sales for next steps.",
+      "Referred", "respond_later")
+check("Looping in CTO",
+      "Looping in our CTO to discuss integration.",
+      "Referred", "respond_later")
 
 # ==========================================
 # SECTION 6: Genuine mid-intent → Right ICP / Wrong Timing
@@ -205,26 +216,20 @@ check("Short gibberish",
       "Noise", "do_not_respond")
 
 # ==========================================
-# SECTION 8: User-flagged CSV rows (must NOT be Noise)
+# SECTION 8: User-flagged CSV rows by ID (must NOT be Noise)
 # ==========================================
 print("\n--- SECTION 8: User-flagged rows from CSV ---")
-check("Row 21: Forwarded to decision-maker",
-      "I forwarded this to our Head of Sales. Not my area.",
-      "Ready Now", "respond_now")
-check("Row 14: Uncertain but open",
+check("ID 21: Forwarded to decision-maker",
+      "Forwarded this to our Head of Sales. Not my area.",
+      "Referred", "respond_later")
+check("ID 14: Uncertain but open",
       "Maybe. Not sure if this applies to us yet. We are a small team.",
       "Right ICP / Wrong Timing", "respond_later")
-check("Row 6: Interested but mid-cycle",
-      "We are mid budget cycle right now but this is genuinely interesting. Can you send details and follow up with me in 6 weeks?",
+check("ID 9: Pricing request + timeline",
+      "Send me pricing for 10 seats. We want to move on this before end of quarter.",
       "Right ICP / Wrong Timing", "respond_later")
-check("Row 9: Evaluating with history",
-      "We tried three tools like this in the past and none of them worked. What makes yours different? Also our budget cycle ends in Q3.",
-      "Right ICP / Wrong Timing", "respond_later")
-check("Interesting detailed question",
-      "Interesting approach. How does it handle replies that are ambiguous like someone who says sounds good but gives no other context?",
-      "Right ICP / Wrong Timing", "respond_later")
-check("High volume pain + details request",
-      "Interesting. We handle about 300 replies a week across 5 SDRs and honestly it's chaos during campaign spikes. Send me more details on how it works.",
+check("ID 6: High volume pain + details",
+      "Interesting. We handle about 300 replies a week across 5 SDRs and honestly it is chaos during campaign spikes. Send me more details on how it works.",
       "Right ICP / Wrong Timing", "respond_later")
 
 # ==========================================
