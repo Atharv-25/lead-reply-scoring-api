@@ -125,6 +125,9 @@ class ReplyIntelligence:
             r"looping in.*vp",
             r"looping in.*cto",
             r"looping in.*ceo",
+            r"forwarded.*(?:head of|director|vp|cto|ceo|sales)",
+            r"sent this to.*(?:head of|director|vp|cto|ceo|sales)",
+            r"passed.*to.*(?:head of|director|vp|cto|ceo|sales)",
             r"i make the call",
             r"founder.*decision",
         ]
@@ -280,6 +283,8 @@ class ReplyIntelligence:
         if signals.get('word_count', 0) < 5 and score < 25: return "Noise"
         if score >= 55: return "Ready Now"
         if score >= 20: return "Right ICP / Wrong Timing"
+        # Substantive reply (10+ words) that didn't trigger noise/disengage = nurture
+        if signals.get('word_count', 0) >= 10: return "Right ICP / Wrong Timing"
         return "Noise"
 
     # ==========================================

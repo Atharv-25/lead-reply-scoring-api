@@ -163,6 +163,15 @@ check("Finalize vendor",
 check("Lock this in",
       "Let's lock this in.",
       "Ready Now", "respond_now")
+check("Forwarded to Head of Sales",
+      "I forwarded this to our Head of Sales. Not my area.",
+      "Ready Now", "respond_now")
+check("Sent this to VP",
+      "I sent this to our VP of Revenue, he handles these decisions.",
+      "Ready Now", "respond_now")
+check("Passed to CTO",
+      "I passed this to our CTO, he'll take it from here.",
+      "Ready Now", "respond_now")
 
 # ==========================================
 # SECTION 6: Genuine mid-intent → Right ICP / Wrong Timing
@@ -191,9 +200,32 @@ check("Just punctuation",
 check("Emoji only",
       "👍",
       "Noise", "do_not_respond")
-check("Very long noise",
-      "ha " * 50,
+check("Short gibberish",
+      "ha ha ha",
       "Noise", "do_not_respond")
+
+# ==========================================
+# SECTION 8: User-flagged CSV rows (must NOT be Noise)
+# ==========================================
+print("\n--- SECTION 8: User-flagged rows from CSV ---")
+check("Row 21: Forwarded to decision-maker",
+      "I forwarded this to our Head of Sales. Not my area.",
+      "Ready Now", "respond_now")
+check("Row 14: Uncertain but open",
+      "Maybe. Not sure if this applies to us yet. We are a small team.",
+      "Right ICP / Wrong Timing", "respond_later")
+check("Row 6: Interested but mid-cycle",
+      "We are mid budget cycle right now but this is genuinely interesting. Can you send details and follow up with me in 6 weeks?",
+      "Right ICP / Wrong Timing", "respond_later")
+check("Row 9: Evaluating with history",
+      "We tried three tools like this in the past and none of them worked. What makes yours different? Also our budget cycle ends in Q3.",
+      "Right ICP / Wrong Timing", "respond_later")
+check("Interesting detailed question",
+      "Interesting approach. How does it handle replies that are ambiguous like someone who says sounds good but gives no other context?",
+      "Right ICP / Wrong Timing", "respond_later")
+check("High volume pain + details request",
+      "Interesting. We handle about 300 replies a week across 5 SDRs and honestly it's chaos during campaign spikes. Send me more details on how it works.",
+      "Right ICP / Wrong Timing", "respond_later")
 
 # ==========================================
 # PRINT RESULTS
