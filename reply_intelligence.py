@@ -113,14 +113,35 @@ class ReplyIntelligence:
             r"send the contract",
             r"sign the contract",
             r"budget approved",
-            r"meet tomorrow"
+            r"meet tomorrow",
+            r"availability this week",
+            r"available this week",
+            r"thursday or friday",
+            r"quick demo this week",
+            r"when can we talk",
+            r"let's talk",
+            r"lets talk",
+            r"looping in.*head of",
+            r"looping in.*vp",
+            r"looping in.*cto",
+            r"looping in.*ceo",
+            r"i make the call",
+            r"founder.*decision",
         ]
 
         self.TERMINAL_NOISE_PATTERNS = [
             r"remove me",
             r"stop emailing",
             r"unsubscribe",
-            r"take me off"
+            r"take me off",
+            r"lol no thanks",
+            r"not relevant",
+            r"inbound only",
+            r"out of office",
+            r"ooo",
+            r"not doing outbound",
+            r"not interested",
+            r"no thanks",
         ]
 
         self.MAX_SCORES = {
@@ -171,7 +192,14 @@ class ReplyIntelligence:
         # Disengagement
         disengage_patterns = [
             r"revisit\s+next\s+quarter", r"not\s+interested",
-            r"other\s+priorities", r"bad\s+timing"
+            r"other\s+priorities", r"bad\s+timing",
+            r"no\s+thanks",
+            r"inbound\s+only",
+            r"not\s+relevant",
+            r"not\s+doing\s+outbound",
+            r"planning\s+to\s+start\s+in\s+q",
+            r"small\s+team\s+of\s+\d",
+            r"maybe\s+when\s+we\s+scale",
         ]
         is_disengaging = any(re.search(p, combined_text) for p in disengage_patterns)
         extracted["is_disengaging"] = is_disengaging
@@ -231,7 +259,7 @@ class ReplyIntelligence:
         if signals.get('is_explicit_noise'): return "Noise"
         if signals.get('is_disengaging'): return "Deprioritize"
         if signals.get('is_keyword_spam'): return "Noise"
-        if score >= 85: return "Ready Now"
+        if score >= 55: return "Ready Now"
         if score > 0: return "Right ICP / Wrong Timing"
         return "Noise"
 
