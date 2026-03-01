@@ -142,6 +142,19 @@ class ReplyIntelligence:
             r"not doing outbound",
             r"not interested",
             r"no thanks",
+            r"wrong fit",
+            r"not a fit",
+            r"don'?t do cold",
+            r"we don'?t do outbound",
+            r"no need",
+            r"pass on this",
+            r"^k$",
+            r"^lol$",
+            r"^ok$",
+            r"^no$",
+            r"^nah$",
+            r"^nope$",
+            r"^haha$",
         ]
 
         self.MAX_SCORES = {
@@ -200,6 +213,10 @@ class ReplyIntelligence:
             r"planning\s+to\s+start\s+in\s+q",
             r"small\s+team\s+of\s+\d",
             r"maybe\s+when\s+we\s+scale",
+            r"wrong\s+fit",
+            r"not\s+a\s+fit",
+            r"don'?t\s+do\s+cold",
+            r"we\s+don'?t\s+do\s+outbound",
         ]
         is_disengaging = any(re.search(p, combined_text) for p in disengage_patterns)
         extracted["is_disengaging"] = is_disengaging
@@ -259,8 +276,10 @@ class ReplyIntelligence:
         if signals.get('is_explicit_noise'): return "Noise"
         if signals.get('is_disengaging'): return "Deprioritize"
         if signals.get('is_keyword_spam'): return "Noise"
+        # Short-reply noise guard: <5 words with weak score = Noise
+        if signals.get('word_count', 0) < 5 and score < 25: return "Noise"
         if score >= 55: return "Ready Now"
-        if score > 0: return "Right ICP / Wrong Timing"
+        if score >= 20: return "Right ICP / Wrong Timing"
         return "Noise"
 
     # ==========================================
