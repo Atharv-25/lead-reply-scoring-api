@@ -94,11 +94,9 @@ check("Not interested",     "Not interested.",       "Noise", "do_not_respond")
 check("No thanks",          "No thanks.",            "Noise", "do_not_respond")
 check("Remove me",          "Please remove me.",     "Noise", "do_not_respond")
 check("Stop emailing",      "Stop emailing me.",     "Noise", "do_not_respond")
-check("Out of office",      "Out of office until next week.", "Noise", "do_not_respond")
 check("Unsubscribe",        "Unsubscribe.",          "Noise", "do_not_respond")
 check("Not relevant",       "Not relevant to us.",   "Noise", "do_not_respond")
 check("Lol no thanks",      "Lol no thanks.",        "Noise", "do_not_respond")
-check("Not doing outbound", "We're not doing outbound.", "Noise", "do_not_respond")
 
 # ==========================================
 # SECTION 4: Disengagement → Deprioritize
@@ -110,12 +108,12 @@ check("Revisit next quarter",
 check("Bad timing explicit",
       "Bad timing for us. We're focused on other things and have other priorities.",
       "Deprioritize", "do_not_respond")
-check("Planning to start in Q3",
+check("Planning to start later",
       "We're planning to start in Q3. Maybe when we scale.",
-      "Deprioritize", "do_not_respond")
-check("Small team deferral",
+      "Right ICP / Wrong Timing", "respond_later")
+check("Small team uncertain",
       "We're a small team of 5, maybe when we scale up.",
-      "Deprioritize", "do_not_respond")
+      "Right ICP / Wrong Timing", "respond_later")
 
 # ==========================================
 # SECTION 5: Terminal ready patterns → Ready Now
@@ -230,6 +228,18 @@ check("ID 9: Pricing request + timeline",
       "Right ICP / Wrong Timing", "respond_later")
 check("ID 6: High volume pain + details",
       "Interesting. We handle about 300 replies a week across 5 SDRs and honestly it is chaos during campaign spikes. Send me more details on how it works.",
+      "Right ICP / Wrong Timing", "respond_later")
+check("Lead 9: Small team uncertain",
+      "We're a small team of 3 so I'm not sure this applies to us yet. Maybe when we scale.",
+      "Right ICP / Wrong Timing", "respond_later")
+check("Lead 20: Next steps",
+      "Sounds good. What are the next steps?",
+      "Ready Now", "respond_now")
+check("Lead 7: OOO with contact",
+      "Out of office until March 10th. For urgent matters contact sarah@gorampup.com",
+      "Referred", "respond_later")
+check("Lead 24: Future outbound intent",
+      "We're not doing outbound right now but planning to start in Q3. Keep me posted.",
       "Right ICP / Wrong Timing", "respond_later")
 
 # ==========================================

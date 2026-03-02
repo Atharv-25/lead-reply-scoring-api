@@ -123,6 +123,10 @@ class ReplyIntelligence:
             r"lets talk",
             r"i make the call",
             r"founder.*decision",
+            r"next steps",
+            r"how do we (?:get started|proceed|move forward)",
+            r"what do i need to do",
+            r"sounds good.*(?:next|proceed|start|forward)",
         ]
 
         # Internal referral / escalation patterns → "Referred" state
@@ -134,6 +138,8 @@ class ReplyIntelligence:
             r"i'?ll.*(?:forward|send|pass).*(?:head of|director|vp|cto|ceo|sales)",
             r"not my (?:area|department|call).*(?:forward|sent|pass|loop)",
             r"(?:forward|sent|pass).*(?:right person|right team|relevant team)",
+            r"out of office.*(?:contact|reach|email|call|@)",
+            r"ooo.*(?:contact|reach|email|call|@)",
         ]
 
         self.TERMINAL_NOISE_PATTERNS = [
@@ -144,9 +150,6 @@ class ReplyIntelligence:
             r"lol no thanks",
             r"not relevant",
             r"inbound only",
-            r"out of office",
-            r"ooo",
-            r"not doing outbound",
             r"not interested",
             r"no thanks",
             r"wrong fit",
@@ -216,14 +219,9 @@ class ReplyIntelligence:
             r"no\s+thanks",
             r"inbound\s+only",
             r"not\s+relevant",
-            r"not\s+doing\s+outbound",
-            r"planning\s+to\s+start\s+in\s+q",
-            r"small\s+team\s+of\s+\d",
-            r"maybe\s+when\s+we\s+scale",
             r"wrong\s+fit",
             r"not\s+a\s+fit",
             r"don'?t\s+do\s+cold",
-            r"we\s+don'?t\s+do\s+outbound",
         ]
         is_disengaging = any(re.search(p, combined_text) for p in disengage_patterns)
         extracted["is_disengaging"] = is_disengaging
@@ -382,16 +380,7 @@ def decide_lead(thread_text=None, thread_history=None, metadata=None):
     cleaned_lines = [l for l in text_lower.split('\n') if not l.strip().startswith('>')]
     cleaned_text = " ".join(cleaned_lines)
 
-    for p in engine.TERMINAL_READY_PATTERNS:
-        if re.search(p, cleaned_text):
-            decision.update({
-                "action": "respond_now", "tier": "Ready Now", "confidence_bucket": "High",
-                "priority_score": 95, "priority_level": "Critical", "explanation": "Terminal buying command detected.",
-                "feedback_prompt": "Did you reply? (Yes/No)", "disposition": "qualified"
-            })
-            return _apply_inbox_reality(decision, metadata)
-
-    # Referral / internal escalation check
+    # Referral / internal escalation check (must be BEFORE ready — more specific)
     for p in engine.TERMINAL_REFERRED_PATTERNS:
         if re.search(p, cleaned_text):
             decision.update({
@@ -403,6 +392,15 @@ def decide_lead(thread_text=None, thread_history=None, metadata=None):
                 "stage": "Referred",
                 "status": "Awaiting decision maker response",
                 "follow_up": "3 to 5 business days"
+            })
+            return _apply_inbox_reality(decision, metadata)
+
+    for p in engine.TERMINAL_READY_PATTERNS:
+        if re.search(p, cleaned_text):
+            decision.update({
+                "action": "respond_now", "tier": "Ready Now", "confidence_bucket": "High",
+                "priority_score": 95, "priority_level": "Critical", "explanation": "Terminal buying command detected.",
+                "feedback_prompt": "Did you reply? (Yes/No)", "disposition": "qualified"
             })
             return _apply_inbox_reality(decision, metadata)
 
