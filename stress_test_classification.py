@@ -225,10 +225,10 @@ check("ID 14: Uncertain but open",
       "Right ICP / Wrong Timing", "respond_later")
 check("ID 9: Pricing request + timeline",
       "Send me pricing for 10 seats. We want to move on this before end of quarter.",
-      "Right ICP / Wrong Timing", "respond_later")
+      "Ready Now", "respond_now")
 check("ID 6: High volume pain + details",
       "Interesting. We handle about 300 replies a week across 5 SDRs and honestly it is chaos during campaign spikes. Send me more details on how it works.",
-      "Right ICP / Wrong Timing", "respond_later")
+      "Ready Now", "respond_now")
 check("Lead 9: Small team uncertain",
       "We're a small team of 3 so I'm not sure this applies to us yet. Maybe when we scale.",
       "Right ICP / Wrong Timing", "respond_later")
@@ -241,6 +241,29 @@ check("Lead 7: OOO with contact",
 check("Lead 24: Future outbound intent",
       "We're not doing outbound right now but planning to start in Q3. Keep me posted.",
       "Right ICP / Wrong Timing", "respond_later")
+check("Lead 5: Sure send more info",
+      "Sure send me more info I guess",
+      "Ready Now", "respond_now")
+
+# ==========================================
+# SECTION 9: Short positive intent (must NOT be Noise)
+# ==========================================
+print("\n--- SECTION 9: Short positive intent ---")
+check("Tell me more",       "Tell me more.",            "Ready Now", "respond_now")
+check("Yes please",         "Yes please.",              "Ready Now", "respond_now")
+check("Go ahead",           "Go ahead.",                "Ready Now", "respond_now")
+check("Im interested",      "I'm interested.",          "Ready Now", "respond_now")
+check("Sounds good",        "Sounds good.",             "Ready Now", "respond_now")
+check("Sign me up",         "Sign me up!",              "Ready Now", "respond_now")
+check("Send me pricing",    "Send me pricing.",         "Ready Now", "respond_now")
+check("Count me in",        "Count me in.",             "Ready Now", "respond_now")
+check("Sounds interesting", "Sounds interesting.",       "Right ICP / Wrong Timing", "respond_later")
+check("Let me check",       "Let me check with my team.", "Right ICP / Wrong Timing", "respond_later")
+check("Maybe single word",  "Maybe.",                   "Right ICP / Wrong Timing", "respond_later")
+check("Curious",            "Curious about this.",      "Right ICP / Wrong Timing", "respond_later")
+check("Keep me posted",     "Keep me posted.",          "Right ICP / Wrong Timing", "respond_later")
+check("Could be a fit",     "Could be a fit.",          "Right ICP / Wrong Timing", "respond_later")
+check("Worth a look",       "Worth a look.",            "Right ICP / Wrong Timing", "respond_later")
 
 # ==========================================
 # PRINT RESULTS

@@ -127,6 +127,16 @@ class ReplyIntelligence:
             r"how do we (?:get started|proceed|move forward)",
             r"what do i need to do",
             r"sounds good.*(?:next|proceed|start|forward)",
+            r"send me.*(?:info|details|more|pricing|proposal|quote)",
+            r"share.*(?:info|details|more|pricing|proposal|quote)",
+            r"tell me more",
+            r"yes,? please",
+            r"go ahead",
+            r"i'?m interested",
+            r"count me in",
+            r"let'?s do (?:it|this)",
+            r"sign me up",
+            r"sounds good",
         ]
 
         # Internal referral / escalation patterns → "Referred" state
@@ -166,6 +176,23 @@ class ReplyIntelligence:
             r"^nope$",
             r"^haha$",
         ]
+
+        # Positive interest patterns (softer signals → Right ICP / Wrong Timing)
+        self.POSITIVE_INTEREST_PATTERNS = [
+            r"(?:sounds|looks)\s+interesting",
+            r"curious",
+            r"keep me (?:posted|updated|in the loop)",
+            r"might be (?:interested|relevant|useful)",
+            r"could be (?:interesting|useful|relevant|a fit)",
+            r"worth (?:a look|exploring|considering)",
+            r"open to (?:learning|hearing|discussing)",
+            r"not opposed",
+            r"maybe\b",
+            r"possibly",
+            r"will (?:check|look|think|consider)",
+            r"let me (?:check|think|look|review|ask)",
+        ]
+
 
         self.MAX_SCORES = {
             "evaluative_depth": 30, "business_pain": 35, "competitor_switch_bonus": 20,
@@ -226,6 +253,10 @@ class ReplyIntelligence:
         is_disengaging = any(re.search(p, combined_text) for p in disengage_patterns)
         extracted["is_disengaging"] = is_disengaging
 
+        # Positive intent detection (catches short interested replies)
+        has_positive_intent = any(re.search(p, combined_text) for p in self.POSITIVE_INTEREST_PATTERNS)
+        extracted["has_positive_intent"] = has_positive_intent
+
         return extracted
 
     # Metrics & Scoring
@@ -281,12 +312,16 @@ class ReplyIntelligence:
         if signals.get('is_explicit_noise'): return "Noise"
         if signals.get('is_disengaging'): return "Deprioritize"
         if signals.get('is_keyword_spam'): return "Noise"
-        # Short-reply noise guard: <5 words with weak score = Noise
-        if signals.get('word_count', 0) < 5 and score < 25: return "Noise"
+        # Short-reply noise guard: <5 words with weak score AND no positive intent = Noise
+        if signals.get('word_count', 0) < 5 and score < 25:
+            if not signals.get('has_positive_intent'):
+                return "Noise"
         if score >= 55: return "Ready Now"
         if score >= 20: return "Right ICP / Wrong Timing"
         # Substantive reply (10+ words) that didn't trigger noise/disengage = nurture
         if signals.get('word_count', 0) >= 10: return "Right ICP / Wrong Timing"
+        # Short reply but shows positive intent = nurture, not noise
+        if signals.get('has_positive_intent'): return "Right ICP / Wrong Timing"
         return "Noise"
 
     # ==========================================
