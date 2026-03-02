@@ -34,6 +34,16 @@ def _log_unknown(text):
     except:
         pass
 
+def clear_lead_memory():
+    """Reset lead memory between CSV test runs to prevent stale duplicate suppression."""
+    global LEAD_MEMORY
+    LEAD_MEMORY = {}
+    try:
+        if os.path.exists(LEAD_MEMORY_FILE):
+            os.remove(LEAD_MEMORY_FILE)
+    except:
+        pass
+
 # Global State initialized from disk
 LEAD_MEMORY = _load_memory()
 
@@ -137,6 +147,8 @@ class ReplyIntelligence:
             r"let'?s do (?:it|this)",
             r"sign me up",
             r"sounds good",
+            r"board.*(?:wants|needs|deadline|before end of)",
+            r"getting started (?:today|now|immediately|asap|this week)",
         ]
 
         # Internal referral / escalation patterns → "Referred" state
@@ -415,7 +427,20 @@ def decide_lead(thread_text=None, thread_history=None, metadata=None):
     cleaned_lines = [l for l in text_lower.split('\n') if not l.strip().startswith('>')]
     cleaned_text = " ".join(cleaned_lines)
 
-    # Referral / internal escalation check (must be BEFORE ready — more specific)
+    # BUYING INTENT OVERRIDE: budget approved + contract/pricing language always = Ready Now
+    # This must be checked BEFORE referral detection so strong intent is not swallowed
+    has_budget_approved = bool(re.search(r"budget approved", cleaned_text))
+    has_contract_language = bool(re.search(r"(?:send|contract|pricing|proposal|terms)", cleaned_text))
+    if has_budget_approved and has_contract_language:
+        decision.update({
+            "action": "respond_now", "tier": "Ready Now", "confidence_bucket": "High",
+            "priority_score": 95, "priority_level": "Critical",
+            "explanation": "Budget approved with contract/pricing language — terminal buying signal.",
+            "feedback_prompt": "Did you reply? (Yes/No)", "disposition": "qualified"
+        })
+        return _apply_inbox_reality(decision, metadata)
+
+    # Referral / internal escalation check
     for p in engine.TERMINAL_REFERRED_PATTERNS:
         if re.search(p, cleaned_text):
             decision.update({

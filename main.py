@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from reply_intelligence import decide_lead
+from reply_intelligence import decide_lead, clear_lead_memory
 import csv
 import io
 import json
@@ -44,6 +44,9 @@ def score(data: LeadInput):
 # ---------- Batch CSV scoring ----------
 @app.post("/score-batch-csv")
 async def score_batch_csv(file: UploadFile = File(...)):
+    # Clear lead memory between CSV test runs to prevent stale duplicate suppression
+    clear_lead_memory()
+    
     content = await file.read()
     try:
         decoded = content.decode("utf-8")
