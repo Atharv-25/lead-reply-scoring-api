@@ -933,7 +933,9 @@
         /* ==========================================
            CONFIG
            ========================================== */
-        const API_BASE = 'https://lead-reply-scoring-api.onrender.com';
+        const API_BASE = window.location.protocol === 'file:'
+            ? 'https://lead-reply-scoring-api.onrender.com'
+            : '';
 
         /* ==========================================
            STATE

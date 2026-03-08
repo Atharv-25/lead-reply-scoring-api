@@ -1,11 +1,13 @@
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from reply_intelligence import decide_lead, clear_lead_memory
 import csv
 import io
 import json
+import os
 from datetime import datetime
 
 app = FastAPI()
@@ -22,6 +24,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ==========================================
+# FRONTEND — serves the Reply Readiness Engine UI
+# ==========================================
+@app.get("/")
+def serve_frontend():
+    return FileResponse(os.path.join("public", "index.html"))
 
 
 class LeadInput(BaseModel):
