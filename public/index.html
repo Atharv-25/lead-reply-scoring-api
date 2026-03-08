@@ -4,282 +4,1359 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lead Verification</title>
+    <title>Reply Readiness Engine</title>
+    <meta name="description"
+        content="Paste a reply or upload a batch to see which conversations to work first. Prioritize leads instantly.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
     <style>
-        /* Minimal ugly-but-functional styling */
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 400px;
-            margin: 50px auto;
-            padding: 20px;
-        }
-
-        .step {
-            display: none;
-            border: 1px solid #ccc;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .step.active {
-            display: block;
-        }
-
-        input,
-        button {
-            display: block;
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
+        /* ==========================================
+           RESET & BASE
+           ========================================== */
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
             box-sizing: border-box;
         }
 
-        button {
-            background: #333;
-            color: white;
-            border: none;
-            cursor: pointer;
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-surface: #141414;
+            --bg-elevated: #1a1a1a;
+            --border: #2a2a2a;
+            --border-hover: #3a3a3a;
+            --text-primary: #e8e6e3;
+            --text-secondary: #8a8a8a;
+            --text-tertiary: #5a5a5a;
+            --green: #00d26a;
+            --green-dim: #00d26a22;
+            --amber: #f5a623;
+            --amber-dim: #f5a62322;
+            --blue: #4a9eff;
+            --blue-dim: #4a9eff22;
+            --grey: #6b6b6b;
+            --grey-dim: #6b6b6b22;
+            --red: #ff4444;
+            --red-dim: #ff444422;
+            --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-data: 'JetBrains Mono', 'Courier New', monospace;
         }
 
-        button:disabled {
-            background: #999;
+        body {
+            font-family: var(--font-heading);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Scan-line overlay */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(255, 255, 255, 0.008) 2px,
+                    rgba(255, 255, 255, 0.008) 4px);
+        }
+
+        /* ==========================================
+           LAYOUT
+           ========================================== */
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 48px 24px 80px;
+        }
+
+        /* ==========================================
+           HEADER
+           ========================================== */
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-family: var(--font-heading);
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .header h1 .dot {
+            color: var(--green);
+        }
+
+        .header p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        /* ==========================================
+           ERROR BANNER
+           ========================================== */
+        .error-banner {
+            display: none;
+            background: var(--red-dim);
+            border: 1px solid var(--red);
+            color: var(--red);
+            padding: 12px 16px;
+            font-family: var(--font-data);
+            font-size: 13px;
+            margin-bottom: 20px;
+            position: relative;
+            animation: bannerSlide 0.3s ease-out;
+        }
+
+        .error-banner.visible {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .error-banner .close-btn {
+            background: none;
+            border: none;
+            color: var(--red);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 0 0 16px;
+            line-height: 1;
+            font-family: var(--font-data);
+        }
+
+        .error-banner .close-btn:hover {
+            color: var(--text-primary);
+        }
+
+        @keyframes bannerSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ==========================================
+           TABS
+           ========================================== */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 32px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            font-family: var(--font-heading);
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-tertiary);
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--text-secondary);
+        }
+
+        .tab.active {
+            color: var(--text-primary);
+            border-bottom-color: var(--green);
+        }
+
+        /* ==========================================
+           PANELS
+           ========================================== */
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+            animation: fadeIn 0.25s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ==========================================
+           MODE 1: PASTE REPLY
+           ========================================== */
+        .textarea-wrap {
+            position: relative;
+            margin-bottom: 4px;
+        }
+
+        .textarea-wrap textarea {
+            width: 100%;
+            height: 200px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-family: var(--font-data);
+            font-size: 13px;
+            padding: 16px;
+            resize: vertical;
+            outline: none;
+            line-height: 1.6;
+            transition: border-color 0.2s;
+        }
+
+        .textarea-wrap textarea::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .textarea-wrap textarea:focus {
+            border-color: var(--border-hover);
+        }
+
+        .textarea-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            font-family: var(--font-data);
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .textarea-meta .shortcut {
+            opacity: 0.7;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        /* ==========================================
+           BUTTONS
+           ========================================== */
+        .btn {
+            font-family: var(--font-heading);
+            font-size: 13px;
+            font-weight: 600;
+            padding: 10px 20px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        .btn-primary:hover {
+            background: #ffffff;
+        }
+
+        .btn-primary:disabled {
+            background: var(--text-tertiary);
+            border-color: var(--text-tertiary);
+            color: var(--bg-primary);
             cursor: not-allowed;
         }
 
-        .checkbox-row {
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover {
+            color: var(--text-primary);
+            border-color: var(--border-hover);
+        }
+
+        .btn-download {
+            background: var(--green-dim);
+            color: var(--green);
+            border-color: var(--green);
+        }
+
+        .btn-download:hover {
+            background: var(--green);
+            color: var(--bg-primary);
+        }
+
+        .btn-copy {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+
+        .btn-copy:hover {
+            color: var(--text-primary);
+            border-color: var(--border-hover);
+        }
+
+        .btn-copy.copied {
+            color: var(--green);
+            border-color: var(--green);
+        }
+
+        /* ==========================================
+           RESULT CARD
+           ========================================== */
+        .result-card {
+            display: none;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            padding: 24px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .result-card.visible {
+            display: block;
+        }
+
+        .result-header {
             display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: space-between;
+            margin-bottom: 16px;
         }
 
-        .checkbox-row input {
-            width: auto;
+        .result-priority {
+            font-family: var(--font-heading);
+            font-size: 22px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .message {
-            padding: 10px;
-            margin: 10px 0;
-            background: #e7f3e7;
-            border: 1px solid #5a5;
+        .result-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        h2 {
-            margin-top: 0;
+        .result-time {
+            font-family: var(--font-data);
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .result-reasoning {
+            font-family: var(--font-data);
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+
+        .result-details {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .result-detail-item {
+            font-family: var(--font-data);
+            font-size: 11px;
+        }
+
+        .result-detail-item .label {
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .result-detail-item .value {
+            color: var(--text-secondary);
+        }
+
+        /* Color variants */
+        .priority-ready {
+            color: var(--green);
+        }
+
+        .priority-timing {
+            color: var(--amber);
+        }
+
+        .priority-referred {
+            color: var(--blue);
+        }
+
+        .priority-noise {
+            color: var(--grey);
+        }
+
+        .card-ready {
+            border-color: var(--green);
+            background: linear-gradient(135deg, var(--green-dim), var(--bg-surface) 60%);
+        }
+
+        .card-timing {
+            border-color: var(--amber);
+            background: linear-gradient(135deg, var(--amber-dim), var(--bg-surface) 60%);
+        }
+
+        .card-referred {
+            border-color: var(--blue);
+            background: linear-gradient(135deg, var(--blue-dim), var(--bg-surface) 60%);
+        }
+
+        .card-noise {
+            border-color: var(--grey);
+            background: linear-gradient(135deg, var(--grey-dim), var(--bg-surface) 60%);
+        }
+
+        /* ==========================================
+           LOADING STATE
+           ========================================== */
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loader.visible {
+            display: block;
+        }
+
+        .loader-text {
+            font-family: var(--font-data);
+            font-size: 14px;
+            color: var(--text-secondary);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .loader-sub {
+            font-family: var(--font-data);
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: 8px;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.4;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border);
+            border-top-color: var(--green);
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ==========================================
+           MODE 2: BATCH UPLOAD
+           ========================================== */
+        .drop-zone {
+            border: 2px dashed var(--border);
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            margin-bottom: 24px;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: var(--green);
+            background: var(--green-dim);
+        }
+
+        .drop-zone-text {
+            font-family: var(--font-data);
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .drop-zone-hint {
+            font-family: var(--font-data);
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: 12px;
+        }
+
+        .file-selected {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            padding: 12px 16px;
+            margin-bottom: 24px;
+            font-family: var(--font-data);
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .file-selected.visible {
+            display: flex;
+        }
+
+        .file-selected .file-name {
+            color: var(--text-primary);
+        }
+
+        .file-selected .file-clear {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            font-family: var(--font-data);
+            font-size: 13px;
+        }
+
+        .file-selected .file-clear:hover {
+            color: var(--red);
+        }
+
+        /* ==========================================
+           SUMMARY BAR
+           ========================================== */
+        .summary-bar {
+            display: none;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .summary-bar.visible {
+            display: grid;
+        }
+
+        .summary-item {
+            border: 1px solid var(--border);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .summary-item .count {
+            font-family: var(--font-heading);
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .summary-item .label {
+            font-family: var(--font-data);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+
+        .summary-ready .count {
+            color: var(--green);
+        }
+
+        .summary-ready {
+            border-color: var(--green);
+            background: var(--green-dim);
+        }
+
+        .summary-timing .count {
+            color: var(--amber);
+        }
+
+        .summary-timing {
+            border-color: var(--amber);
+            background: var(--amber-dim);
+        }
+
+        .summary-referred .count {
+            color: var(--blue);
+        }
+
+        .summary-referred {
+            border-color: var(--blue);
+            background: var(--blue-dim);
+        }
+
+        .summary-noise .count {
+            color: var(--grey);
+        }
+
+        .summary-noise {
+            border-color: var(--grey);
+            background: var(--grey-dim);
+        }
+
+        /* ==========================================
+           PREVIEW TABLE
+           ========================================== */
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .row-count {
+            font-family: var(--font-data);
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .table-wrap {
+            display: none;
+            overflow-x: auto;
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .table-wrap.visible {
+            display: block;
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: var(--font-data);
+            font-size: 12px;
+        }
+
+        .preview-table th {
+            text-align: left;
+            padding: 10px 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 10px;
+            color: var(--text-tertiary);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .preview-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: top;
+        }
+
+        .preview-table tr:hover td {
+            background: var(--bg-elevated);
+        }
+
+        .preview-table .col-id {
+            width: 60px;
+        }
+
+        .preview-table .col-text {
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .preview-table .col-priority {
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .preview-table .col-score {
+            width: 70px;
+            text-align: center;
+        }
+
+        .preview-table .col-reasoning {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .row-ready td {
+            border-left: 3px solid var(--green);
+        }
+
+        .row-ready .col-priority {
+            color: var(--green);
+        }
+
+        .row-timing td {
+            border-left: 3px solid var(--amber);
+        }
+
+        .row-timing .col-priority {
+            color: var(--amber);
+        }
+
+        .row-referred td {
+            border-left: 3px solid var(--blue);
+        }
+
+        .row-referred .col-priority {
+            color: var(--blue);
+        }
+
+        .row-noise td {
+            border-left: 3px solid var(--grey);
+        }
+
+        .row-noise .col-priority {
+            color: var(--grey);
+        }
+
+        /* ==========================================
+           BATCH RESPONSE TIME
+           ========================================== */
+        .response-time-bar {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .response-time-bar.visible {
+            display: flex;
+        }
+
+        .response-time-label {
+            font-family: var(--font-data);
+            font-size: 11px;
+            color: var(--text-tertiary);
         }
     </style>
 </head>
 
 <body>
-    <h1>Contact Us</h1>
-
-    <!-- =============================================
-       STEP 1: Lead Form (Name, Email, Phone)
-       This is NOT final submit - just data collection
-  ============================================= -->
-    <div id="step1" class="step active">
-        <h2>Step 1: Your Details</h2>
-        <input type="text" id="name" placeholder="Full Name" required>
-        <input type="email" id="email" placeholder="Email Address" required>
-        <input type="tel" id="phone" placeholder="Phone Number" required>
-        <button id="continueBtn">Continue</button>
-    </div>
-
-    <!-- =============================================
-       STEP 2: OTP Verification
-       OTP is sent to email (logged in server console)
-  ============================================= -->
-    <div id="step2" class="step">
-        <h2>Step 2: Verify Email</h2>
-        <p>Enter the 6-digit code sent to your email.</p>
-        <input type="text" id="otp" placeholder="Enter OTP" maxlength="6">
-        <button id="verifyBtn">Verify OTP</button>
-        <button id="resendBtn" style="background:#666">Resend OTP</button>
-    </div>
-
-    <!-- =============================================
-       STEP 3: Intent Confirmation
-       User MUST check the box to confirm intent
-  ============================================= -->
-    <div id="step3" class="step">
-        <h2>Step 3: Confirm Intent</h2>
-        <div class="checkbox-row">
-            <input type="checkbox" id="intent">
-            <label for="intent">Yes, I want to be contacted</label>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>Reply Readiness Engine<span class="dot">.</span></h1>
+            <p>Paste a reply or upload a batch to see which conversations to work first.</p>
         </div>
-        <button id="submitBtn" disabled>Submit</button>
-    </div>
 
-    <!-- =============================================
-       SUCCESS MESSAGE
-  ============================================= -->
-    <div id="success" class="step">
-        <div class="message">Thank you! We'll be in touch.</div>
+        <!-- ERROR BANNER -->
+        <div id="errorBanner" class="error-banner">
+            <span id="errorMessage">Something went wrong. Try again.</span>
+            <button class="close-btn" onclick="hideError()" aria-label="Close error">&times;</button>
+        </div>
+
+        <!-- TABS -->
+        <div class="tabs">
+            <button class="tab active" id="tabPaste" onclick="switchTab('paste')">Paste Reply</button>
+            <button class="tab" id="tabBatch" onclick="switchTab('batch')">Upload Batch</button>
+        </div>
+
+        <!-- ==========================================
+             MODE 1: PASTE REPLY
+             ========================================== -->
+        <div id="panelPaste" class="panel active">
+            <div class="textarea-wrap">
+                <textarea id="replyText" placeholder="Paste your reply thread here..." spellcheck="false"></textarea>
+            </div>
+            <div class="textarea-meta">
+                <span id="charCount">0 chars</span>
+                <span class="shortcut">⌘+Enter to analyze</span>
+            </div>
+            <div class="btn-row">
+                <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeReply()">Analyze Reply</button>
+                <button class="btn btn-secondary" onclick="clearPaste()">Clear</button>
+            </div>
+
+            <!-- Loading -->
+            <div id="pasteLoader" class="loader">
+                <div class="spinner"></div>
+                <div class="loader-text">Analyzing…</div>
+            </div>
+
+            <!-- Result -->
+            <div id="resultCard" class="result-card">
+                <div class="result-header">
+                    <span id="resultPriority" class="result-priority"></span>
+                    <div class="result-meta">
+                        <span id="resultTime" class="result-time"></span>
+                        <button class="btn btn-copy" id="copyBtn" onclick="copyResult()">Copy</button>
+                    </div>
+                </div>
+                <div id="resultReasoning" class="result-reasoning"></div>
+                <div class="result-details">
+                    <div class="result-detail-item">
+                        <div class="label">Tier</div>
+                        <div class="value" id="resultTier">—</div>
+                    </div>
+                    <div class="result-detail-item">
+                        <div class="label">Action</div>
+                        <div class="value" id="resultAction">—</div>
+                    </div>
+                    <div class="result-detail-item">
+                        <div class="label">Confidence</div>
+                        <div class="value" id="resultConf">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             MODE 2: UPLOAD BATCH
+             ========================================== -->
+        <div id="panelBatch" class="panel">
+            <!-- Drop Zone -->
+            <div id="dropZone" class="drop-zone">
+                <div class="drop-zone-text">Drag &amp; drop a CSV file here</div>
+                <button class="btn btn-secondary" onclick="document.getElementById('csvInput').click()">Choose
+                    File</button>
+                <div class="drop-zone-hint">CSV format only · must include a "thread_text" column</div>
+                <input type="file" id="csvInput" accept=".csv" style="display:none">
+            </div>
+
+            <!-- File Selected -->
+            <div id="fileSelected" class="file-selected">
+                <span>File: <span class="file-name" id="fileName"></span></span>
+                <button class="file-clear" onclick="clearFile()">&times; Remove</button>
+            </div>
+
+            <!-- Process Button -->
+            <div class="btn-row" id="batchBtnRow" style="display:none">
+                <button class="btn btn-primary" id="processBtn" onclick="processBatch()">Process Batch</button>
+            </div>
+
+            <!-- Loading -->
+            <div id="batchLoader" class="loader">
+                <div class="spinner"></div>
+                <div class="loader-text">Processing batch…</div>
+                <div class="loader-sub">This may take a moment for large files.</div>
+            </div>
+
+            <!-- Summary Bar -->
+            <div id="summaryBar" class="summary-bar">
+                <div class="summary-item summary-ready">
+                    <div class="count" id="countReady">0</div>
+                    <div class="label">Ready Now</div>
+                </div>
+                <div class="summary-item summary-timing">
+                    <div class="count" id="countTiming">0</div>
+                    <div class="label">Right ICP / Wrong Timing</div>
+                </div>
+                <div class="summary-item summary-referred">
+                    <div class="count" id="countReferred">0</div>
+                    <div class="label">Referred</div>
+                </div>
+                <div class="summary-item summary-noise">
+                    <div class="count" id="countNoise">0</div>
+                    <div class="label">Noise</div>
+                </div>
+            </div>
+
+            <!-- Response Time + Download Row -->
+            <div id="batchResponseBar" class="response-time-bar">
+                <span id="batchTime" class="response-time-label"></span>
+                <button class="btn btn-download" id="downloadBtn" onclick="downloadCSV()">↓ Download Results</button>
+            </div>
+
+            <!-- Table -->
+            <div id="tableWrap" class="table-wrap">
+                <div class="table-header">
+                    <span id="rowCount" class="row-count"></span>
+                </div>
+                <table class="preview-table">
+                    <thead>
+                        <tr>
+                            <th class="col-id">ID</th>
+                            <th class="col-text">Thread Text</th>
+                            <th class="col-priority">Priority</th>
+                            <th class="col-score">Score</th>
+                            <th class="col-reasoning">Reasoning</th>
+                        </tr>
+                    </thead>
+                    <tbody id="previewBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
-        /**
-         * Lead Verification Gate - Frontend Logic
-         * 
-         * FLOW:
-         * 1. User fills form → clicks Continue
-         * 2. Backend sends OTP (logged to console)
-         * 3. User verifies OTP
-         * 4. User confirms intent with checkbox
-         * 5. ONLY THEN is lead submitted
-         */
+        /* ==========================================
+           CONFIG
+           ========================================== */
+        const API_BASE = 'https://lead-reply-scoring-api.onrender.com';
 
-        // ============================================
-        // STATE
-        // ============================================
-        let formData = { name: '', email: '', phone: '' };
+        /* ==========================================
+           STATE
+           ========================================== */
+        let selectedFile = null;
+        let scoredCsvBlob = null;
+        let errorTimeout = null;
 
-        // ============================================
-        // DOM ELEMENTS
-        // ============================================
-        const step1 = document.getElementById('step1');
-        const step2 = document.getElementById('step2');
-        const step3 = document.getElementById('step3');
-        const success = document.getElementById('success');
-
-        const nameInput = document.getElementById('name');
-        const emailInput = document.getElementById('email');
-        const phoneInput = document.getElementById('phone');
-        const otpInput = document.getElementById('otp');
-        const intentCheckbox = document.getElementById('intent');
-
-        const continueBtn = document.getElementById('continueBtn');
-        const verifyBtn = document.getElementById('verifyBtn');
-        const resendBtn = document.getElementById('resendBtn');
-        const submitBtn = document.getElementById('submitBtn');
-
-        // ============================================
-        // HELPER FUNCTIONS
-        // ============================================
-        function showStep(stepEl) {
-            [step1, step2, step3, success].forEach(s => s.classList.remove('active'));
-            stepEl.classList.add('active');
+        /* ==========================================
+           TAB SWITCHING
+           ========================================== */
+        function switchTab(tab) {
+            document.getElementById('tabPaste').classList.toggle('active', tab === 'paste');
+            document.getElementById('tabBatch').classList.toggle('active', tab === 'batch');
+            document.getElementById('panelPaste').classList.toggle('active', tab === 'paste');
+            document.getElementById('panelBatch').classList.toggle('active', tab === 'batch');
         }
 
-        async function sendOTP() {
-            try {
-                await fetch('/send-otp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: formData.email })
-                });
-            } catch (err) {
-                console.error('Fetch error:', err);
-                // Fallback for demo if fetch fails violently
-            }
+        /* ==========================================
+           ERROR HANDLING
+           ========================================== */
+        function showError(msg) {
+            const banner = document.getElementById('errorBanner');
+            document.getElementById('errorMessage').textContent = msg || 'Something went wrong. Try again.';
+            banner.classList.add('visible');
+            if (errorTimeout) clearTimeout(errorTimeout);
+            errorTimeout = setTimeout(() => hideError(), 8000);
         }
 
-        // ============================================
-        // STEP 1: Continue (Send OTP)
-        // ============================================
-        continueBtn.addEventListener('click', async () => {
-            // Collect form data
-            formData.name = nameInput.value.trim();
-            formData.email = emailInput.value.trim();
-            formData.phone = phoneInput.value.trim();
+        function hideError() {
+            document.getElementById('errorBanner').classList.remove('visible');
+            if (errorTimeout) clearTimeout(errorTimeout);
+        }
 
-            // Basic validation
-            if (!formData.name || !formData.email || !formData.phone) {
-                alert('Please fill all fields');
-                return;
-            }
+        /* ==========================================
+           MODE 1: PASTE REPLY
+           ========================================== */
+        const replyText = document.getElementById('replyText');
+        const charCount = document.getElementById('charCount');
 
-            // Send OTP and move to step 2
-            continueBtn.disabled = true;
-            continueBtn.textContent = 'Sending...';
-
-            await sendOTP();
-
-            showStep(step2);
-            continueBtn.disabled = false;
-            continueBtn.textContent = 'Continue';
+        // Live character count
+        replyText.addEventListener('input', () => {
+            charCount.textContent = `${replyText.value.length} chars`;
         });
 
-        // ============================================
-        // STEP 2: Verify OTP
-        // ============================================
-        verifyBtn.addEventListener('click', async () => {
-            const code = otpInput.value.trim();
-
-            if (code.length !== 6) {
-                alert('Please enter 6-digit code');
-                return;
+        // Keyboard shortcut: Cmd/Ctrl + Enter
+        replyText.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                analyzeReply();
             }
+        });
 
-            verifyBtn.disabled = true;
-            verifyBtn.textContent = 'Verifying...';
+        async function analyzeReply() {
+            const text = replyText.value.trim();
+            if (!text) return;
+
+            const btn = document.getElementById('analyzeBtn');
+            const loader = document.getElementById('pasteLoader');
+            const card = document.getElementById('resultCard');
+
+            btn.disabled = true;
+            card.classList.remove('visible');
+            loader.classList.add('visible');
+            hideError();
+
+            const startTime = performance.now();
 
             try {
-                const res = await fetch('/verify-otp', {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 120000);
+
+                const res = await fetch(`${API_BASE}/score`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: formData.email, code })
+                    body: JSON.stringify({
+                        text: text,
+                        created_at: new Date().toISOString(),
+                        last_reply_from_us: false
+                    }),
+                    signal: controller.signal
                 });
+                clearTimeout(timeout);
+
+                if (!res.ok) throw new Error(`API returned ${res.status}`);
 
                 const data = await res.json();
+                const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
 
-                if (data.verified) {
-                    showStep(step3);
-                } else {
-                    // Generic message - never expose "invalid OTP"
-                    alert('Please check your code and try again');
-                }
+                renderResult(data, elapsed);
             } catch (err) {
-                alert('Communication error. Try again.');
+                if (err.name === 'AbortError') {
+                    showError('Request timed out. The server may be waking up — try again in 30 seconds.');
+                } else {
+                    showError('Something went wrong. Check your connection and try again.');
+                }
+                console.error('Score error:', err);
+            } finally {
+                btn.disabled = false;
+                loader.classList.remove('visible');
             }
+        }
 
-            verifyBtn.disabled = false;
-            verifyBtn.textContent = 'Verify OTP';
+        function renderResult(data, elapsed) {
+            const card = document.getElementById('resultCard');
+            const priorityEl = document.getElementById('resultPriority');
+            const reasoningEl = document.getElementById('resultReasoning');
+            const timeEl = document.getElementById('resultTime');
+
+            const priority = data.priority_level || data.disposition || 'Unknown';
+            const { cls, cardCls } = getPriorityClasses(priority);
+
+            // Remove old classes
+            card.className = 'result-card visible ' + cardCls;
+            priorityEl.className = 'result-priority ' + cls;
+            priorityEl.textContent = priority;
+
+            reasoningEl.textContent = data.explanation || data.ranking_rationale || '—';
+
+            timeEl.textContent = `Scored in ${elapsed}s`;
+
+            document.getElementById('resultTier').textContent = data.tier || '—';
+            document.getElementById('resultAction').textContent = formatAction(data.action) || '—';
+            document.getElementById('resultConf').textContent = data.confidence || '—';
+
+            // Reset copy button
+            const copyBtn = document.getElementById('copyBtn');
+            copyBtn.textContent = 'Copy';
+            copyBtn.classList.remove('copied');
+        }
+
+        function clearPaste() {
+            replyText.value = '';
+            charCount.textContent = '0 chars';
+            document.getElementById('resultCard').classList.remove('visible');
+            document.getElementById('pasteLoader').classList.remove('visible');
+            replyText.focus();
+        }
+
+        function copyResult() {
+            const priority = document.getElementById('resultPriority').textContent;
+            const reasoning = document.getElementById('resultReasoning').textContent;
+            const text = `${priority}\n${reasoning}`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.textContent = 'Copied ✓';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        /* ==========================================
+           MODE 2: BATCH UPLOAD
+           ========================================== */
+        const dropZone = document.getElementById('dropZone');
+        const csvInput = document.getElementById('csvInput');
+
+        // Drag & drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
         });
 
-        // Resend OTP
-        resendBtn.addEventListener('click', async () => {
-            resendBtn.disabled = true;
-            resendBtn.textContent = 'Sending...';
-
-            await sendOTP();
-
-            resendBtn.disabled = false;
-            resendBtn.textContent = 'Resend OTP';
-            alert('New code sent!');
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
         });
 
-        // ============================================
-        // STEP 3: Intent Confirmation + Submit
-        // ============================================
-
-        // Enable/disable submit based on checkbox
-        intentCheckbox.addEventListener('change', () => {
-            submitBtn.disabled = !intentCheckbox.checked;
-        });
-
-        submitBtn.addEventListener('click', async () => {
-            if (!intentCheckbox.checked) {
-                return;
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                selectFile(file);
+            } else {
+                showError('Please upload a CSV file.');
             }
+        });
 
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Submitting...';
+        csvInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                selectFile(e.target.files[0]);
+            }
+        });
 
-            // Submit lead with all verification data
-            await fetch('/submit-lead', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    phone: formData.phone,
-                    intentConfirmed: true
-                })
+        function selectFile(file) {
+            selectedFile = file;
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSelected').classList.add('visible');
+            document.getElementById('batchBtnRow').style.display = 'flex';
+            dropZone.style.display = 'none';
+
+            // Clear previous results
+            document.getElementById('summaryBar').classList.remove('visible');
+            document.getElementById('tableWrap').classList.remove('visible');
+            document.getElementById('batchResponseBar').classList.remove('visible');
+        }
+
+        function clearFile() {
+            selectedFile = null;
+            scoredCsvBlob = null;
+            csvInput.value = '';
+            document.getElementById('fileSelected').classList.remove('visible');
+            document.getElementById('batchBtnRow').style.display = 'none';
+            dropZone.style.display = '';
+            document.getElementById('summaryBar').classList.remove('visible');
+            document.getElementById('tableWrap').classList.remove('visible');
+            document.getElementById('batchResponseBar').classList.remove('visible');
+        }
+
+        async function processBatch() {
+            if (!selectedFile) return;
+
+            const loader = document.getElementById('batchLoader');
+            const btn = document.getElementById('processBtn');
+
+            btn.disabled = true;
+            loader.classList.add('visible');
+            document.getElementById('summaryBar').classList.remove('visible');
+            document.getElementById('tableWrap').classList.remove('visible');
+            document.getElementById('batchResponseBar').classList.remove('visible');
+            hideError();
+
+            const startTime = performance.now();
+
+            try {
+                // Build two FormData objects (file can only be used once per FormData)
+                const fd1 = new FormData();
+                fd1.append('file', selectedFile);
+
+                const fd2 = new FormData();
+                fd2.append('file', selectedFile);
+
+                // Fire both requests simultaneously with 120s timeout
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 120000);
+
+                const [csvRes, summaryRes] = await Promise.all([
+                    fetch(`${API_BASE}/score-batch-csv`, { method: 'POST', body: fd1, signal: controller.signal }),
+                    fetch(`${API_BASE}/beta-summary-json`, { method: 'POST', body: fd2, signal: controller.signal })
+                ]);
+                clearTimeout(timeout);
+
+                if (!csvRes.ok) throw new Error(`CSV scoring failed: ${csvRes.status}`);
+                if (!summaryRes.ok) throw new Error(`Summary failed: ${summaryRes.status}`);
+
+                const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+
+                // Store CSV blob for download
+                scoredCsvBlob = await csvRes.blob();
+
+                // Parse summary
+                const summaryData = await summaryRes.json();
+
+                // Parse CSV text for preview
+                const csvText = await scoredCsvBlob.text();
+                // Re-create blob since .text() consumes it
+                scoredCsvBlob = new Blob([csvText], { type: 'text/csv' });
+
+                renderBatchResults(summaryData, csvText, elapsed);
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    showError('Request timed out. The server may be waking up — try again in 30 seconds.');
+                } else {
+                    showError('Something went wrong. Check your connection and try again.');
+                }
+                console.error('Batch error:', err);
+            } finally {
+                btn.disabled = false;
+                loader.classList.remove('visible');
+            }
+        }
+
+        function renderBatchResults(summaryData, csvText, elapsed) {
+            const summary = summaryData.beta_summary || {};
+            const tiers = summary.tier_breakdown || {};
+            const actions = summary.action_breakdown || {};
+
+            // Map tier names to UI counts
+            document.getElementById('countReady').textContent = tiers['Ready Now'] || 0;
+            document.getElementById('countTiming').textContent = tiers['Right ICP / Wrong Timing'] || 0;
+            document.getElementById('countReferred').textContent = tiers['Referred'] || 0;
+            document.getElementById('countNoise').textContent =
+                (tiers['Noise'] || 0) + (tiers['Deprioritize'] || 0);
+
+            document.getElementById('summaryBar').classList.add('visible');
+
+            // Parse CSV for preview table
+            const rows = parseCSV(csvText);
+            const totalRows = rows.length;
+            const previewRows = rows.slice(0, 10);
+
+            const tbody = document.getElementById('previewBody');
+            tbody.innerHTML = '';
+
+            previewRows.forEach(row => {
+                const tr = document.createElement('tr');
+                const priority = row['priority_level'] || '';
+                const rowCls = getRowClass(priority);
+                tr.className = rowCls;
+
+                tr.innerHTML = `
+                    <td class="col-id">${escHTML(row['id'] || '')}</td>
+                    <td class="col-text" title="${escHTML(row['thread_text'] || '')}">${escHTML(truncate(row['thread_text'] || '', 80))}</td>
+                    <td class="col-priority">${escHTML(priority)}</td>
+                    <td class="col-score">${escHTML(row['confidence_bucket'] || '')}</td>
+                    <td class="col-reasoning" title="${escHTML(row['explanation'] || '')}">${escHTML(truncate(row['explanation'] || '', 60))}</td>
+                `;
+                tbody.appendChild(tr);
             });
 
-            // Always show success
-            showStep(success);
-        });
+            document.getElementById('rowCount').textContent =
+                totalRows > 10
+                    ? `Showing 10 of ${totalRows} results`
+                    : `Showing ${totalRows} result${totalRows !== 1 ? 's' : ''}`;
+
+            document.getElementById('tableWrap').classList.add('visible');
+
+            // Response time
+            document.getElementById('batchTime').textContent = `Processed in ${elapsed}s`;
+            document.getElementById('batchResponseBar').classList.add('visible');
+        }
+
+        function downloadCSV() {
+            if (!scoredCsvBlob) return;
+            const url = URL.createObjectURL(scoredCsvBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'scored_leads.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        /* ==========================================
+           UTILITIES
+           ========================================== */
+        function getPriorityClasses(priority) {
+            const p = (priority || '').toLowerCase();
+            if (p.includes('ready now')) return { cls: 'priority-ready', cardCls: 'card-ready' };
+            if (p.includes('right icp') || p.includes('wrong timing')) return { cls: 'priority-timing', cardCls: 'card-timing' };
+            if (p.includes('referred')) return { cls: 'priority-referred', cardCls: 'card-referred' };
+            return { cls: 'priority-noise', cardCls: 'card-noise' };
+        }
+
+        function getRowClass(priority) {
+            const p = (priority || '').toLowerCase();
+            if (p.includes('ready now')) return 'row-ready';
+            if (p.includes('right icp') || p.includes('wrong timing')) return 'row-timing';
+            if (p.includes('referred')) return 'row-referred';
+            return 'row-noise';
+        }
+
+        function formatAction(action) {
+            if (!action) return '—';
+            return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function truncate(str, len) {
+            if (str.length <= len) return str;
+            return str.substring(0, len) + '…';
+        }
+
+        function escHTML(str) {
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) return [];
+
+            const headers = parseCSVLine(lines[0]);
+            const rows = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = parseCSVLine(lines[i]);
+                const row = {};
+                headers.forEach((h, idx) => {
+                    row[h.trim()] = (values[idx] || '').trim();
+                });
+                rows.push(row);
+            }
+            return rows;
+        }
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (inQuotes) {
+                    if (ch === '"') {
+                        if (i + 1 < line.length && line[i + 1] === '"') {
+                            current += '"';
+                            i++;
+                        } else {
+                            inQuotes = false;
+                        }
+                    } else {
+                        current += ch;
+                    }
+                } else {
+                    if (ch === '"') {
+                        inQuotes = true;
+                    } else if (ch === ',') {
+                        result.push(current);
+                        current = '';
+                    } else {
+                        current += ch;
+                    }
+                }
+            }
+            result.push(current);
+            return result;
+        }
     </script>
 </body>
 

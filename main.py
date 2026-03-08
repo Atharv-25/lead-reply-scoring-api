@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from reply_intelligence import decide_lead, clear_lead_memory
 import csv
@@ -8,6 +9,19 @@ import json
 from datetime import datetime
 
 app = FastAPI()
+
+# ==========================================
+# CORS — allows the frontend to call the API
+# from any origin (file://, localhost, etc.)
+# This is HTTP infrastructure, NOT scoring logic.
+# ==========================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class LeadInput(BaseModel):
