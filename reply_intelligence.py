@@ -189,6 +189,155 @@ class ReplyIntelligence:
             r"^haha$",
         ]
 
+        # ==========================================
+        # SHORT REPLY OVERRIDE PHRASES
+        # ==========================================
+        # High-intent short phrases → auto "Ready Now" when word_count <= 10
+        # Curated from sales/SDR best practices (Outreach, Reply.io, Woodpecker, Reddit r/sales)
+        self.SHORT_HIGH_INTENT_PHRASES = [
+            # Direct interest
+            r"^interested$",
+            r"(?:very|definitely|absolutely)\s+interested",
+            r"^i'?m interested$",
+            r"^i am interested$",
+            r"^i'?m in$",
+            r"^im in$",
+            r"^count me in$",
+            r"^sign me up$",
+            r"^want it$",
+            r"^i want it$",
+            r"^want this$",
+            r"^need this$",
+            r"^need it$",
+            r"^love it$",
+            r"^love this$",
+            r"^perfect$",
+            # Agreement / green light
+            r"^yes$",
+            r"^yes\s*(?:please|pls)$",
+            r"^yep$",
+            r"^yeah$",
+            r"^absolutely$",
+            r"^for sure$",
+            r"^definitely$",
+            r"^sure thing$",
+            r"^let'?s do (?:it|this)$",
+            r"^lets do (?:it|this)$",
+            r"^let'?s go$",
+            r"^lets go$",
+            r"^go ahead$",
+            r"^go for it$",
+            r"^(?:i'?m )?down$",
+            r"^deal$",
+            r"^done$",
+            r"^bet$",
+            # Request for action
+            r"call me",
+            r"when are you free",
+            r"when can we (?:talk|meet|connect|chat)",
+            r"send (?:me )?(?:pricing|info|details|proposal|quote)",
+            r"share (?:pricing|details|info|proposal|quote)",
+            r"(?:set up|schedule|book) (?:a )?(?:call|demo|meeting|time)",
+            r"get me started",
+            r"how do i (?:sign up|start|begin|register)",
+            r"where do i sign up",
+            # Positive engagement
+            r"^sounds (?:good|great|perfect|amazing|awesome)$",
+            r"^looks (?:good|great|perfect|amazing|awesome)$",
+            r"^this is (?:great|perfect|amazing|awesome|exactly what i need)$",
+            r"tell me more",
+            r"(?:i'?d )?love to (?:learn|hear|know|see) more",
+            r"(?:send|can you send) more (?:info|details)",
+            r"what(?:'s| are) (?:the )?next steps",
+            r"what'?s next",
+            r"how do we (?:start|proceed|get started|move forward|begin)",
+            r"how does (?:it|this) work",
+            r"show me",
+            r"walk me through",
+            # Urgency
+            r"^asap$",
+            r"^right away$",
+            r"^immediately$",
+            r"^ready to (?:start|go|begin|move|proceed)$",
+            r"let'?s (?:start|get started|begin)",
+            r"lets (?:start|get started|begin)",
+            r"when can we start",
+        ]
+
+        # Noise / low-value short phrases → confirm as Noise when word_count <= 10
+        self.SHORT_NOISE_PHRASES = [
+            # Minimal acknowledgment (no buying signal)
+            r"^k$",
+            r"^kk$",
+            r"^ok$",
+            r"^okay$",
+            r"^sure$",
+            r"^fine$",
+            r"^alright$",
+            r"^noted$",
+            r"^got it$",
+            r"^received$",
+            r"^seen$",
+            r"^read$",
+            r"^thanks$",
+            r"^thank you$",
+            r"^ty$",
+            r"^thx$",
+            r"^cool$",
+            r"^nice$",
+            r"^great$",
+            r"^good$",
+            r"^yea$",
+            r"^ya$",
+            # Dismissive
+            r"^lol$",
+            r"^lmao$",
+            r"^ha(?:ha)+$",
+            r"^rofl$",
+            r"^nah$",
+            r"^nope$",
+            r"^naw$",
+            r"^meh$",
+            r"^whatever$",
+            r"^idc$",
+            r"^don'?t care$",
+            r"^who cares$",
+            r"^bruh$",
+            r"^bro$",
+            # Explicit rejection
+            r"not interested",
+            r"no thanks",
+            r"no thank you",
+            r"^pass$",
+            r"hard pass",
+            r"remove me",
+            r"unsubscribe",
+            r"^stop$",
+            r"stop emailing",
+            r"take me off",
+            r"wrong (?:person|number|email)",
+            r"don'?t contact",
+            r"do not contact",
+            r"leave me alone",
+            r"go away",
+            r"^spam$",
+            # Vague deflection
+            r"maybe later",
+            r"^not (?:right )?now$",
+            r"^busy$",
+            r"in a meeting",
+            r"will get back",
+            r"let me think",
+            r"circle back",
+            r"revisit later",
+            r"not a priority",
+            r"bad timing",
+            r"not the right time",
+            r"we'?re (?:good|set|all set)",
+            r"^all (?:good|set)$",
+            r"^no need$",
+        ]
+
         # Positive interest patterns (softer signals → Right ICP / Wrong Timing)
         self.POSITIVE_INTEREST_PATTERNS = [
             r"(?:sounds|looks)\s+interesting",
@@ -425,7 +574,39 @@ def decide_lead(thread_text=None, thread_history=None, metadata=None):
     
     # Terminal checks on latest text...
     cleaned_lines = [l for l in text_lower.split('\n') if not l.strip().startswith('>')]
-    cleaned_text = " ".join(cleaned_lines)
+    cleaned_text = " ".join(cleaned_lines).strip()
+
+    # ==========================================
+    # SHORT REPLY OVERRIDE (word_count <= 10)
+    # ==========================================
+    # Short replies have no volume to analyze so the score drops even when
+    # the signal is strong. This override catches high-intent and noise
+    # short phrases before the scoring pipeline runs.
+    short_word_count = len(cleaned_text.split())
+    if short_word_count <= 10 and short_word_count > 0:
+        # Check high intent FIRST — promote to Ready Now
+        # (checked before noise so "sure, let's talk" hits high-intent
+        # on "let's talk" rather than noise on "sure")
+        for p in engine.SHORT_HIGH_INTENT_PHRASES:
+            if re.search(p, cleaned_text):
+                decision.update({
+                    "action": "respond_now", "tier": "Ready Now", "confidence_bucket": "High",
+                    "priority_score": 90, "priority_level": "Critical",
+                    "explanation": "Short high-intent reply. Prospect expressed direct interest. Follow up immediately.",
+                    "feedback_prompt": "Did you reply? (Yes/No)", "disposition": "qualified"
+                })
+                return _apply_inbox_reality(decision, metadata)
+
+        # Then check noise — reject low-value short replies
+        for p in engine.SHORT_NOISE_PHRASES:
+            if re.search(p, cleaned_text):
+                decision.update({
+                    "action": "do_not_respond", "tier": "Noise", "confidence_bucket": "High",
+                    "priority_score": 0, "priority_level": "Low",
+                    "explanation": "Short low-value reply. No actionable intent.",
+                    "feedback_prompt": "Correctly blocked? (Yes/No)", "disposition": "ignore"
+                })
+                return _apply_inbox_reality(decision, metadata)
 
     # BUYING INTENT OVERRIDE: budget approved + contract/pricing language always = Ready Now
     # This must be checked BEFORE referral detection so strong intent is not swallowed

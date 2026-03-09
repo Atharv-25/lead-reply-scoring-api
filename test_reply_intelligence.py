@@ -67,5 +67,77 @@ class TestReplyIntelligence(unittest.TestCase):
         self.assertEqual(result['state'], "Right ICP / Wrong Timing")
         self.assertGreaterEqual(result['score'], 20)
         self.assertLess(result['score'], 55)
+    # ==========================================
+    # SHORT REPLY OVERRIDE TESTS (via decide_lead)
+    # ==========================================
+    def test_short_high_intent_interested(self):
+        """Single word 'interested' should be Ready Now"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="interested")
+        self.assertEqual(result['tier'], "Ready Now")
+        self.assertGreaterEqual(result['priority_score'], 80)
+
+    def test_short_high_intent_call_me(self):
+        """'call me' should be Ready Now"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="call me")
+        self.assertEqual(result['tier'], "Ready Now")
+
+    def test_short_high_intent_im_in(self):
+        """'im in' should be Ready Now"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="im in")
+        self.assertEqual(result['tier'], "Ready Now")
+
+    def test_short_high_intent_yes(self):
+        """'yes' should be Ready Now"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="yes")
+        self.assertEqual(result['tier'], "Ready Now")
+
+    def test_short_high_intent_send_pricing(self):
+        """'send me pricing' should be Ready Now"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="send me pricing")
+        self.assertEqual(result['tier'], "Ready Now")
+
+    def test_short_noise_lol(self):
+        """'lol' should be Noise"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="lol")
+        self.assertEqual(result['tier'], "Noise")
+
+    def test_short_noise_ok(self):
+        """'ok' should be Noise"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="ok")
+        self.assertEqual(result['tier'], "Noise")
+
+    def test_short_noise_nice(self):
+        """'nice' should be Noise"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="nice")
+        self.assertEqual(result['tier'], "Noise")
+
+    def test_short_noise_not_interested(self):
+        """'not interested' should be Noise"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="not interested")
+        self.assertEqual(result['tier'], "Noise")
+
+    def test_short_noise_maybe_later(self):
+        """'maybe later' should be Noise (not promoted)"""
+        from reply_intelligence import decide_lead
+        result = decide_lead(thread_text="maybe later")
+        self.assertEqual(result['tier'], "Noise")
+
+    def test_long_reply_not_affected_by_override(self):
+        """Longer reply with 'interested' should flow through normal scoring, not the short override"""
+        from reply_intelligence import decide_lead
+        long_text = "I am somewhat interested in what you showed us last week but we need to discuss it further with the team and see if it fits our roadmap"
+        result = decide_lead(thread_text=long_text)
+        # Should NOT be forced to Ready Now by the override (>10 words)
+        self.assertIn(result['tier'], ["Right ICP / Wrong Timing", "Ready Now", "Noise"])
+
 if __name__ == '__main__':
     unittest.main()
