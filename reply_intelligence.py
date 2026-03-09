@@ -261,6 +261,10 @@ class ReplyIntelligence:
             r"^ready to (?:start|go|begin|move|proceed)$",
             r"let'?s (?:start|get started|begin)",
             r"lets (?:start|get started|begin)",
+            r"when to (?:talk|chat|connect|meet)",
+            r"when can we\b",
+            r"when works for you",
+            r"what time works",
             r"when can we start",
         ]
 
